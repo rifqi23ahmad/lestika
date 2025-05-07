@@ -1,511 +1,342 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Math Course Manager</title>
-  <style>
-    /* Reset & Base */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', sans-serif; background: #f4f6f8; color: #333; line-height: 1.6; }
-    .container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
-    .card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1rem; }
-    .center { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; width: 300px; margin: auto; }
-    .hidden { display: none !important; }
-    input, select, textarea { width: 100%; padding: 0.6rem; margin: 0.5rem 0; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
-    button { cursor: pointer; padding: 0.6rem 1rem; border: none; border-radius: 4px; background: #007bff; color: #fff; margin: 0.5rem 0; font-size: 1rem; }
-    button:hover { background: #0056b3; }
-    button.secondary { background: #6c757d; }
-    button.secondary:hover { background: #5a6268; }
-    .actions { display: flex; gap: 1rem; margin-bottom: 1rem; }
-    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-    th, td { padding: 0.75rem; border-bottom: 1px solid #eee; text-align: left; }
-    .list { list-style: none; margin: 1rem 0; }
-    .list li { padding: 0.75rem; background: #fff; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
-    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .modal-content { width: 400px; max-width: 90%; max-height: 90vh; overflow-y: auto; }
-    .modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
-    h1 { margin-bottom: 1.5rem; }
-    h2 { margin-bottom: 1rem; }
-    h3 { margin-bottom: 1rem; }
-    #login-screen input, #login-screen button { width: 100%; }
-    .schedule-item { display: flex; justify-content: space-between; align-items: center; }
-    .badge { padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; background: #e9ecef; color: #495057; }
-  </style>
-</head>
-<body>
-  <div id="app">
-    <!-- Login Screen -->
-    <section id="login-screen" class="card center">
-      <h1>Math Course Manager</h1>
-      <input id="username" placeholder="Username" />
-      <input id="password" type="password" placeholder="Password" />
-      <button id="login-btn">Login</button>
-    </section>
-
-    <!-- Admin Dashboard -->
-    <section id="admin-dashboard" class="hidden container">
-      <h2>Admin Dashboard</h2>
-      <div class="actions">
-        <button id="open-create-student">+ Tambah Siswa</button>
-        <button id="open-create-schedule">+ Buat Jadwal</button>
-        <button id="open-settings">⚙️ Pengaturan</button>
-      </div>
-      
-      <div class="card">
-        <h3>Daftar Siswa</h3>
-        <table id="students-table">
-          <thead>
-            <tr>
-              <th>Nama</th>
-              <th>Username</th>
-              <th>Pertemuan</th>
-              <th>Tagihan</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      
-      <div class="card">
-        <h3>Jadwal Pertemuan</h3>
-        <table id="schedules-table">
-          <thead>
-            <tr>
-              <th>Siswa</th>
-              <th>Tanggal</th>
-              <th>Materi</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Create Student Modal -->
-    <section id="modal-create-student" class="modal hidden">
-      <div class="modal-content card">
-        <h3>Tambah Siswa Baru</h3>
-        <input id="new-name" placeholder="Nama Lengkap" />
-        <input id="new-username" placeholder="Username" />
-        <input id="new-password" type="password" placeholder="Password" />
-        <input id="new-fee" type="number" placeholder="Biaya per Bulan" />
-        <div class="modal-footer">
-          <button class="secondary close-modal">Batal</button>
-          <button id="create-student-btn">Simpan</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Create Schedule Modal -->
-    <section id="modal-create-schedule" class="modal hidden">
-      <div class="modal-content card">
-        <h3>Buat Jadwal Baru</h3>
-        <select id="schedule-student">
-          <option value="">Pilih Siswa</option>
-        </select>
-        <input id="schedule-date" type="date" />
-        <input id="schedule-subject" placeholder="Materi Pembelajaran" />
-        <div class="modal-footer">
-          <button class="secondary close-modal">Batal</button>
-          <button id="create-schedule-btn">Simpan</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Settings Modal -->
-    <section id="modal-settings" class="modal hidden">
-      <div class="modal-content card">
-        <h3>Pengaturan</h3>
-        <label>Batas Pertemuan untuk Tagihan:</label>
-        <select id="threshold-select">
-          <option value="4">4 pertemuan</option>
-          <option value="6">6 pertemuan</option>
-          <option value="8">8 pertemuan</option>
-        </select>
-        <div class="modal-footer">
-          <button class="secondary close-modal">Batal</button>
-          <button id="save-settings">Simpan</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Student Dashboard -->
-    <section id="student-dashboard" class="hidden container">
-      <h2>Selamat datang, <span id="student-name"></span></h2>
-      
-      <div class="card">
-        <h3>Jadwal Pertemuan Anda</h3>
-        <ul id="schedule-list" class="list"></ul>
-      </div>
-      
-      <div id="billing-info" class="card">
-        <h3>Informasi Tagihan</h3>
-        <div id="billing-details"></div>
-      </div>
-    </section>
-  </div>
-
-  <script>
-    const API_BASE = 'https://sheetdb.io/api/v1/r5268rzwhhrtw';
-    const API_STUDENTS = `${API_BASE}?students`;
-    const API_ADMIN = `${API_BASE}?admin`;
-    const API_SCHEDULES = `${API_BASE}?schedules`;
-    const API_SETTINGS = `${API_BASE}?settings`;
-
-    let user = null;
-    let billingThreshold = 6;
-    let allStudents = [];
-    let allSchedules = [];
-
-    // DOM helpers
-    function el(selector) { return document.querySelector(selector); }
-    function els(selector) { return document.querySelectorAll(selector); }
-    function toggle(...selectors) { 
-      selectors.forEach(selector => {
-        els(selector).forEach(element => element.classList.toggle('hidden'));
-      });
-    }
-
-    // API helpers
-    async function fetchData(url, options = {}) {
-      try {
-        const response = await fetch(url, options);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return await response.json();
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        alert('Gagal memuat data. Silakan cek koneksi Anda.');
-        return null;
-      }
-    }
-
-    // Login function
-    async function login() {
-  const username = el('#username').value.trim();
-  const password = el('#password').value.trim();
-  
-  if (!username || !password) {
-    alert('Harap masukkan username dan password');
-    return;
-  }
-
-  // Cek admin dulu
-  const admins = await fetchData(API_ADMIN);
-  if (admins) {
-    const adminMatch = admins.find(a => a.username === username && a.password === password);
-    if (adminMatch) {
-      user = adminMatch;
-      user.role = 'admin';
-      const settings = await fetchData(API_SETTINGS);
-      if (settings && settings.length > 0) {
-        billingThreshold = Number(settings[0].billing_threshold) || 6;
-      }
-      return await initAdmin();
-    }
-  }
-
-  // Cek students jika bukan admin
-  const students = await fetchData(API_STUDENTS);
-  if (!students) return;
-
-  const match = students.find(s => s.username === username && s.password === password);
-  if (!match) {
-    alert('Username atau password salah');
-    return;
-  }
-
-  user = match;
-
-  const settings = await fetchData(API_SETTINGS);
-  if (settings && settings.length > 0) {
-    billingThreshold = Number(settings[0].billing_threshold) || 6;
-  }
-
-  return await initStudent();
-}
-    // Admin functions
-    async function initAdmin() {
-      toggle('#login-screen', '#admin-dashboard');
-      setupModals();
-      await loadStudents();
-      await loadSchedules();
-    }
-
-    async function loadStudents() {
-      const students = await fetchData(API_STUDENTS);
-      if (!students) return;
-      
-      allStudents = students;
-      const tbody = el('#students-table tbody');
-      tbody.innerHTML = '';
-
-      const studentList = el('#schedule-student');
-      studentList.innerHTML = '<option value="">Pilih Siswa</option>';
-
-      students.filter(s => s.role === 'student').forEach(student => {
-        // Add to students table
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${student.name || '-'}</td>
-          <td>${student.username || '-'}</td>
-          <td>${student.pertemuan || '0'}</td>
-          <td>${student.fee ? `Rp${Number(student.fee).toLocaleString()}` : '-'}</td>
-          <td><button onclick="printInvoice('${student.id}')">Cetak</button></td>
-        `;
-        tbody.appendChild(row);
-
-        // Add to schedule dropdown
-        const option = document.createElement('option');
-        option.value = student.id;
-        option.textContent = student.name;
-        studentList.appendChild(option);
-      });
-    }
-
-    async function loadSchedules() {
-      const schedules = await fetchData(API_SCHEDULES);
-      if (!schedules) return;
-      
-      allSchedules = schedules;
-      const tbody = el('#schedules-table tbody');
-      tbody.innerHTML = '';
-
-      if (schedules.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4">Belum ada jadwal</td></tr>';
-        return;
-      }
-
-      schedules.forEach(schedule => {
-        const student = allStudents.find(s => s.id === schedule.student_id);
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${student ? student.name : 'Siswa tidak ditemukan'}</td>
-          <td>${schedule.date || '-'}</td>
-          <td>${schedule.subject || '-'}</td>
-          <td>
-            <button onclick="deleteSchedule('${schedule.id}')">Hapus</button>
-          </td>
-        `;
-        tbody.appendChild(row);
-      });
-    }
-
-    function setupModals() {
-      // Create student modal
-      el('#open-create-student').addEventListener('click', () => toggle('#modal-create-student'));
-      el('#create-student-btn').addEventListener('click', createStudent);
-
-      // Create schedule modal
-      el('#open-create-schedule').addEventListener('click', () => toggle('#modal-create-schedule'));
-      el('#create-schedule-btn').addEventListener('click', createSchedule);
-
-      // Settings modal
-      el('#open-settings').addEventListener('click', () => {
-        el('#threshold-select').value = billingThreshold;
-        toggle('#modal-settings');
-      });
-      el('#save-settings').addEventListener('click', saveSettings);
-
-      // Close modals
-      els('.close-modal').forEach(btn => {
-        btn.addEventListener('click', () => toggle('.modal'));
-      });
-    }
-
-    async function createStudent() {
-      const name = el('#new-name').value.trim();
-      const username = el('#new-username').value.trim();
-      const password = el('#new-password').value.trim();
-      const fee = el('#new-fee').value.trim();
-
-      if (!name || !username || !password || !fee) {
-        alert('Harap isi semua field');
-        return;
-      }
-
-      const newStudent = {
-        name,
-        username,
-        password,
-        fee,
-        role: 'student',
-        pertemuan: '0',
-        cetak: ''
-      };
-
-      const result = await fetchData(API_STUDENTS, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: [newStudent] })
-      });
-
-      if (result) {
-        alert('Siswa berhasil ditambahkan');
-        toggle('#modal-create-student');
-        el('#new-name').value = '';
-        el('#new-username').value = '';
-        el('#new-password').value = '';
-        el('#new-fee').value = '';
-        await loadStudents();
-      }
-    }
-
-    async function createSchedule() {
-      const studentId = el('#schedule-student').value;
-      const date = el('#schedule-date').value;
-      const subject = el('#schedule-subject').value.trim();
-
-      if (!studentId || !date || !subject) {
-        alert('Harap isi semua field');
-        return;
-      }
-
-      const newSchedule = {
-        student_id: studentId,
-        date,
-        subject
-      };
-
-      const result = await fetchData(API_SCHEDULES, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: [newSchedule] })
-      });
-
-      if (result) {
-        // Update meeting count for student
-        const student = allStudents.find(s => s.id === studentId);
-        if (student) {
-          const newCount = parseInt(student.pertemuan || 0) + 1;
-          await fetchData(`${API_STUDENTS}/id/${studentId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: { pertemuan: newCount.toString() } })
-          });
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Manajemen Belajar</title>
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+    <style>
+        :root {
+            --primary: #4CAF50;
+            --secondary: #2196F3;
+            --background: #f5f5f5;
         }
 
-        alert('Jadwal berhasil ditambahkan');
-        toggle('#modal-create-schedule');
-        el('#schedule-student').value = '';
-        el('#schedule-date').value = '';
-        el('#schedule-subject').value = '';
-        await loadStudents();
-        await loadSchedules();
-      }
-    }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--background);
+        }
 
-    async function deleteSchedule(scheduleId) {
-      if (!confirm('Apakah Anda yakin ingin menghapus jadwal ini?')) return;
-      
-      const result = await fetchData(`${API_SCHEDULES}/id/${scheduleId}`, {
-        method: 'DELETE'
-      });
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
 
-      if (result) {
-        alert('Jadwal berhasil dihapus');
-        await loadSchedules();
-      }
-    }
+        .login-container {
+            width: 300px;
+            margin: 100px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
 
-    async function saveSettings() {
-      const newThreshold = Number(el('#threshold-select').value);
-      
-      const result = await fetchData(API_SETTINGS, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          data: [{ billing_threshold: newThreshold }] 
-        })
-      });
+        .login-form input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            box-sizing: border-box;
+        }
 
-      if (result) {
-        billingThreshold = newThreshold;
-        toggle('#modal-settings');
-        await loadStudents();
-      }
-    }
+        .login-form button {
+            background-color: var(--primary);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+        }
 
-    function printInvoice(studentId) {
-      // This would be enhanced with actual invoice printing logic
-      const student = allStudents.find(s => s.id === studentId);
-      if (student) {
-        alert(`Mencetak invoice untuk ${student.name}`);
-        window.print();
-      }
-    }
+        .dashboard-nav {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
 
-    // Student functions
-    async function initStudent() {
-      toggle('#login-screen', '#student-dashboard');
-      el('#student-name').textContent = user.name;
-      await loadStudentData();
-    }
+        .dashboard-nav button {
+            margin-right: 10px;
+            padding: 8px 15px;
+            cursor: pointer;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
 
-    async function loadStudentData() {
-      const schedules = await fetchData(API_SCHEDULES);
-      if (!schedules) return;
+        .form-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
 
-      // Load schedules
-      const mySchedules = schedules.filter(sc => sc.student_id === user.id);
-      const ul = el('#schedule-list');
-      ul.innerHTML = '';
+        #calendar {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
 
-      if (mySchedules.length === 0) {
-        ul.innerHTML = '<li>Belum ada jadwal pertemuan</li>';
-      } else {
-        mySchedules.forEach(schedule => {
-          const li = document.createElement('li');
-          li.className = 'schedule-item';
-          li.innerHTML = `
-            <div>
-              <strong>${schedule.date || 'Tanggal tidak tersedia'}</strong>
-              <p>${schedule.subject || 'Tidak ada keterangan'}</p>
-            </div>
-            <span class="badge">Pertemuan</span>
-          `;
-          ul.appendChild(li);
-        });
-      }
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            margin-top: 20px;
+        }
 
-      // Load billing info
-      const billingDetails = el('#billing-details');
-      billingDetails.innerHTML = '';
+        .schedule-table th, .schedule-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
 
-      const meetingCount = parseInt(user.pertemuan || 0);
-      
-      if (meetingCount >= billingThreshold) {
-        const dueDate = user.cetak || new Date().toLocaleDateString('id-ID');
-        billingDetails.innerHTML = `
-          <p>Total pertemuan: <strong>${meetingCount}</strong></p>
-          <p>Biaya yang harus dibayar: <strong>Rp${Number(user.fee || 0).toLocaleString()}</strong></p>
-          <p>Batas pembayaran: <strong>${dueDate}</strong></p>
-          <button onclick="window.print()">Cetak Invoice</button>
-        `;
-      } else {
-        const remaining = billingThreshold - meetingCount;
-        billingDetails.innerHTML = `
-          <p>Total pertemuan: <strong>${meetingCount}</strong></p>
-          <p>Anda perlu <strong>${remaining} pertemuan</strong> lagi sebelum tagihan berikutnya</p>
-        `;
-      }
-    }
+        .schedule-table th {
+            background-color: var(--primary);
+            color: white;
+        }
 
-    // Initialize the app
-    document.addEventListener('DOMContentLoaded', () => {
-      el('#login-btn').addEventListener('click', login);
-      
-      // Allow login on Enter key
-      el('#password').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') login();
-      });
-      
-      // Set today's date as default for schedule date
-      const today = new Date().toISOString().split('T')[0];
-      el('#schedule-date').value = today;
-    });
-  </script>
+        .notification {
+            background: #ffeb3b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .logout-btn {
+            background-color: #ff4444 !important;
+            float: right;
+        }
+    </style>
+</head>
+<body>
+    <div id="loginScreen" class="login-container">
+        <h2>Login</h2>
+        <form class="login-form" onsubmit="return handleLogin(event)">
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+    <div id="guruDashboard" class="container" style="display: none;">
+        <div class="dashboard-nav">
+            <button class="logout-btn" onclick="logout()">Logout</button>
+            <button onclick="showForm('addStudentForm')">Tambah Siswa</button>
+            <button onclick="showForm('scheduleForm')">Atur Jadwal</button>
+            <button onclick="refreshCalendar()">Refresh Kalender</button>
+        </div>
+
+        <div id="addStudentForm" class="form-modal">
+            <h3>Tambah Siswa Baru</h3>
+            <form onsubmit="return addStudent(event)">
+                <input type="text" id="newUsername" placeholder="Username" required>
+                <input type="password" id="newPassword" placeholder="Password" required>
+                <input type="number" id="maxMeetings" placeholder="Max Pertemuan" required>
+                <input type="number" id="costPerMeeting" placeholder="Biaya per Pertemuan" required>
+                <button type="submit">Simpan</button>
+                <button type="button" onclick="closeForms()">Batal</button>
+            </form>
+        </div>
+
+        <div id="scheduleForm" class="form-modal">
+            <h3>Jadwal Baru</h3>
+            <form onsubmit="return scheduleMeeting(event)">
+                <select id="studentList" required></select>
+                <input type="date" id="meetingDate" required>
+                <input type="time" id="meetingTime" required>
+                <button type="submit">Simpan</button>
+                <button type="button" onclick="closeForms()">Batal</button>
+            </form>
+        </div>
+
+        <div id="calendar"></div>
+    </div>
+
+    <div id="siswaDashboard" class="container" style="display: none;">
+        <div class="dashboard-nav">
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+        <h2>Jadwal Pertemuan</h2>
+        <table class="schedule-table">
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>Jam</th>
+                    <th>Pertemuan Ke</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="studentSchedule"></tbody>
+        </table>
+        <div id="paymentNotification" class="notification" style="display: none;"></div>
+    </div>
+
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+    <script>
+        let users = JSON.parse(localStorage.getItem('users')) || [
+            { username: 'guru', password: '1234', role: 'guru' }
+        ];
+        
+        let meetings = JSON.parse(localStorage.getItem('meetings')) || [];
+        let calendar = null;
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if(user) {
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                if(user.role === 'guru') {
+                    showGuruDashboard();
+                    initCalendar();
+                } else {
+                    showSiswaDashboard();
+                    loadStudentSchedule();
+                }
+                document.getElementById('loginScreen').style.display = 'none';
+            } else {
+                alert('Login gagal!');
+            }
+        }
+
+        function showGuruDashboard() {
+            document.getElementById('guruDashboard').style.display = 'block';
+            populateStudentList();
+        }
+
+        function addStudent(e) {
+            e.preventDefault();
+            const newUser = {
+                username: document.getElementById('newUsername').value,
+                password: document.getElementById('newPassword').value,
+                role: 'siswa',
+                max_meetings: parseInt(document.getElementById('maxMeetings').value),
+                cost_per_meeting: parseInt(document.getElementById('costPerMeeting').value),
+                remaining_meetings: parseInt(document.getElementById('maxMeetings').value)
+            };
+            
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
+            closeForms();
+            populateStudentList();
+        }
+
+        function scheduleMeeting(e) {
+            e.preventDefault();
+            const student = users.find(u => u.username === document.getElementById('studentList').value);
+            
+            if(student.remaining_meetings <= 0) {
+                alert('Kuota pertemuan sudah habis!');
+                return;
+            }
+            
+            const newMeeting = {
+                student: student.username,
+                date: document.getElementById('meetingDate').value,
+                time: document.getElementById('meetingTime').value,
+                status: 'pending'
+            };
+            
+            meetings.push(newMeeting);
+            student.remaining_meetings--;
+            localStorage.setItem('meetings', JSON.stringify(meetings));
+            localStorage.setItem('users', JSON.stringify(users));
+            closeForms();
+            initCalendar();
+        }
+
+        function initCalendar() {
+            const calendarEl = document.getElementById('calendar');
+            if(calendar) {
+                calendar.destroy();
+            }
+            
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                events: meetings.map(m => ({
+                    title: m.student,
+                    start: m.date + 'T' + m.time
+                })),
+                eventDidMount: function(info) {
+                    info.el.title = `Pertemuan dengan ${info.event.title}`;
+                }
+            });
+            calendar.render();
+        }
+
+        function showSiswaDashboard() {
+            document.getElementById('siswaDashboard').style.display = 'block';
+        }
+
+        function loadStudentSchedule() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const studentMeetings = meetings.filter(m => m.student === currentUser.username);
+            const tbody = document.getElementById('studentSchedule');
+            
+            tbody.innerHTML = studentMeetings.map((m, index) => `
+                <tr>
+                    <td>${m.date}</td>
+                    <td>${m.time}</td>
+                    <td>${index + 1} dari ${currentUser.max_meetings}</td>
+                    <td>${m.status}</td>
+                </tr>
+            `).join('');
+            
+            if(studentMeetings.length >= currentUser.max_meetings) {
+                const total = currentUser.max_meetings * currentUser.cost_per_meeting;
+                document.getElementById('paymentNotification').style.display = 'block';
+                document.getElementById('paymentNotification').innerHTML = `
+                    ⚠️ Tagihan Pembelajaran<br>
+                    Total: Rp${total.toLocaleString()}<br>
+                    Harap segera melakukan pembayaran!
+                `;
+            }
+        }
+
+        function populateStudentList() {
+            const select = document.getElementById('studentList');
+            select.innerHTML = users
+                .filter(u => u.role === 'siswa')
+                .map(u => `<option>${u.username}</option>`)
+                .join('');
+        }
+
+        function showForm(formId) {
+            document.querySelectorAll('.form-modal').forEach(f => f.style.display = 'none');
+            document.getElementById(formId).style.display = 'block';
+        }
+
+        function closeForms() {
+            document.querySelectorAll('.form-modal').forEach(f => f.style.display = 'none');
+        }
+
+        function logout() {
+            localStorage.removeItem('currentUser');
+            location.reload();
+        }
+
+        function refreshCalendar() {
+            meetings = JSON.parse(localStorage.getItem('meetings')) || [];
+            initCalendar();
+        }
+
+        if(localStorage.getItem('currentUser')) {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if(currentUser.role === 'guru') showGuruDashboard();
+            else showSiswaDashboard();
+            document.getElementById('loginScreen').style.display = 'none';
+        }
+    </script>
 </body>
 </html>
