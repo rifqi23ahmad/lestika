@@ -114,6 +114,21 @@
             background-color: #ff4444 !important;
             float: right;
         }
+
+        .status-indicator {
+            padding: 4px 8px;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.8em;
+        }
+
+        .status-indicator.pending {
+            background-color: #2196F3;
+        }
+
+        .status-indicator.done {
+            background-color: #4CAF50;
+        }
     </style>
 </head>
 <body>
@@ -131,7 +146,6 @@
             <button class="logout-btn" onclick="logout()">Logout</button>
             <button onclick="showForm('addStudentForm')">Tambah Siswa</button>
             <button onclick="showForm('scheduleForm')">Atur Jadwal</button>
-            <button onclick="refreshCalendar()">Refresh Kalender</button>
         </div>
 
         <div id="addStudentForm" class="form-modal">
@@ -152,6 +166,22 @@
                 <select id="studentList" required></select>
                 <input type="date" id="meetingDate" required>
                 <input type="time" id="meetingTime" required>
+                <button type="submit">Simpan</button>
+                <button type="button" onclick="closeForms()">Batal</button>
+            </form>
+        </div>
+
+        <div id="editMeetingForm" class="form-modal">
+            <h3>Edit Jadwal</h3>
+            <form onsubmit="return updateMeeting(event)">
+                <input type="hidden" id="editMeetingId">
+                <select id="editStudentList" required></select>
+                <input type="date" id="editMeetingDate" required>
+                <input type="time" id="editMeetingTime" required>
+                <select id="editStatus">
+                    <option value="pending">Pending</option>
+                    <option value="done">Selesai</option>
+                </select>
                 <button type="submit">Simpan</button>
                 <button type="button" onclick="closeForms()">Batal</button>
             </form>
@@ -264,19 +294,72 @@
             
             calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
-                events: meetings.map(m => ({
+                events: meetings.map((m, index) => ({
+                    id: index,
                     title: m.student,
-                    start: m.date + 'T' + m.time
+                    start: m.date + 'T' + m.time,
+                    color: m.status === 'done' ? '#4CAF50' : '#2196F3'
                 })),
-                eventDidMount: function(info) {
-                    info.el.title = `Pertemuan dengan ${info.event.title}`;
+                eventClick: function(info) {
+                    showEditForm(info.event);
                 }
             });
             calendar.render();
         }
 
-        function showSiswaDashboard() {
-            document.getElementById('siswaDashboard').style.display = 'block';
+        function showEditForm(event) {
+            const meetingIndex = event.id;
+            const meeting = meetings[meetingIndex];
+            
+            document.getElementById('editMeetingId').value = meetingIndex;
+            document.getElementById('editMeetingDate').value = meeting.date;
+            document.getElementById('editMeetingTime').value = meeting.time;
+            document.getElementById('editStatus').value = meeting.status;
+            
+            const select = document.getElementById('editStudentList');
+            select.innerHTML = users
+                .filter(u => u.role === 'siswa')
+                .map(u => `<option ${u.username === meeting.student ? 'selected' : ''}>${u.username}</option>`)
+                .join('');
+            
+            showForm('editMeetingForm');
+        }
+
+        function updateMeeting(e) {
+            e.preventDefault();
+            const meetingIndex = document.getElementById('editMeetingId').value;
+            const originalMeeting = meetings[meetingIndex];
+            
+            const newData = {
+                student: document.getElementById('editStudentList').value,
+                date: document.getElementById('editMeetingDate').value,
+                time: document.getElementById('editMeetingTime').value,
+                status: document.getElementById('editStatus').value
+            };
+
+            // Update remaining meetings if student changed
+            if(newData.student !== originalMeeting.student) {
+                const oldStudent = users.find(u => u.username === originalMeeting.student);
+                const newStudent = users.find(u => u.username === newData.student);
+                
+                oldStudent.remaining_meetings++;
+                newStudent.remaining_meetings--;
+                
+                if(newStudent.remaining_meetings < 0) {
+                    alert('Kuota siswa tidak mencukupi!');
+                    return;
+                }
+            }
+
+            // Update meeting data
+            meetings[meetingIndex] = { ...originalMeeting, ...newData };
+            
+            localStorage.setItem('meetings', JSON.stringify(meetings));
+            localStorage.setItem('users', JSON.stringify(users));
+            
+            closeForms();
+            initCalendar();
+            loadStudentSchedule();
         }
 
         function loadStudentSchedule() {
@@ -289,11 +372,15 @@
                     <td>${m.date}</td>
                     <td>${m.time}</td>
                     <td>${index + 1} dari ${currentUser.max_meetings}</td>
-                    <td>${m.status}</td>
+                    <td>
+                        <span class="status-indicator ${m.status}">${m.status}</span>
+                    </td>
                 </tr>
             `).join('');
-            
-            if(studentMeetings.length >= currentUser.max_meetings) {
+
+            // Cek jika semua pertemuan selesai
+            const allDone = studentMeetings.every(m => m.status === 'done');
+            if(allDone || studentMeetings.length >= currentUser.max_meetings) {
                 const total = currentUser.max_meetings * currentUser.cost_per_meeting;
                 document.getElementById('paymentNotification').style.display = 'block';
                 document.getElementById('paymentNotification').innerHTML = `
@@ -324,11 +411,6 @@
         function logout() {
             localStorage.removeItem('currentUser');
             location.reload();
-        }
-
-        function refreshCalendar() {
-            meetings = JSON.parse(localStorage.getItem('meetings')) || [];
-            initCalendar();
         }
 
         if(localStorage.getItem('currentUser')) {
