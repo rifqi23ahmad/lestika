@@ -4,174 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jadwal Les</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            font-family: Arial, sans-serif;
-        }
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        header {
-            background-color: #4CAF50;
-            color: white;
-            padding: 15px 0;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .login-container {
-            max-width: 400px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: white;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .login-container h2 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        .form-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .dashboard {
-            display: none;
-        }
-        .tab {
-            overflow: hidden;
-            border: 1px solid #ccc;
-            background-color: #f1f1f1;
-            border-radius: 5px 5px 0 0;
-        }
-        .tab button {
-            background-color: inherit;
-            float: left;
-            border: none;
-            outline: none;
-            cursor: pointer;
-            padding: 14px 16px;
-            transition: 0.3s;
-            width: auto;
-            color: black;
-        }
-        .tab button:hover {
-            background-color: #ddd;
-        }
-        .tab button.active {
-            background-color: #4CAF50;
-            color: white;
-        }
-        .tabcontent {
-            display: none;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-top: none;
-            background-color: white;
-            border-radius: 0 0 5px 5px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        table, th, td {
-            border: 1px solid #ddd;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-        }
-        th {
-            background-color: #4CAF50;
-            color: white;
-        }
-        tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
-        .form-container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: white;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .form-container h2 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .invoice {
-            max-width: 600px;
-            margin: 20px auto;
-            padding: 20px;
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .invoice-header {
-            text-align: center;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 10px;
-        }
-        .invoice-details {
-            margin-bottom: 20px;
-        }
-        .invoice-table {
-            width: 100%;
-            margin-bottom: 20px;
-        }
-        .invoice-total {
-            text-align: right;
-            font-weight: bold;
-            font-size: 18px;
-        }
-        .print-btn {
-            margin-top: 20px;
-            text-align: center;
-        }
-        .error {
-            color: red;
-            font-size: 14px;
-            margin-top: 5px;
-        }
-        .success {
-            color: green;
-            font-size: 14px;
-            margin-top: 5px;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header>
@@ -201,6 +34,7 @@
             <div class="tab">
                 <button class="tablinks active" onclick="openTab(event, 'guru-jadwal')">Jadwal Mengajar</button>
                 <button class="tablinks" onclick="openTab(event, 'guru-tagihan')">Tagihan Siswa</button>
+                <button class="tablinks" onclick="openTab(event, 'guru-edit-tagihan')">Edit Tagihan</button>
                 <button class="tablinks" onclick="openTab(event, 'guru-pendapatan')">Pendapatan</button>
                 <button class="tablinks" onclick="openTab(event, 'guru-tambah')">Tambah Jadwal</button>
                 <button class="tablinks" onclick="openTab(event, 'guru-edit')">Edit Jadwal</button>
@@ -221,6 +55,53 @@
                     <tbody></tbody>
                 </table>
             </div>
+
+            <div id="guru-edit-tagihan" class="tabcontent">
+                <h2>Edit Tagihan Siswa</h2>
+                <table id="edit-tagihan-table">
+                    <thead>
+                        <tr>
+                            <th>Nama Siswa</th>
+                            <th>Tagihan per Sesi</th>
+                            <th>Jumlah Pertemuan</th>
+                            <th>Status</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+
+                            <div id="edit-tagihan-form-container" class="form-container" style="display: none; margin-top: 20px;">
+                    <h2>Edit Tagihan</h2>
+                    <form id="edit-tagihan-form">
+                        <input type="hidden" id="edit-tagihan-username">
+                        <div class="form-group">
+                            <label for="edit-tagihan-nama-siswa">Nama Siswa</label>
+                            <input type="text" id="edit-tagihan-nama-siswa" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-tagihan-tagihan">Tagihan per Sesi</label>
+                            <input type="number" id="edit-tagihan-tagihan" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-tagihan-jumlah">Jumlah Pertemuan</label>
+                            <input type="number" id="edit-tagihan-jumlah" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-tagihan-status">Status Pembayaran</label>
+                            <select id="edit-tagihan-status" required>
+                                <option value="Belum">Belum</option>
+                                <option value="Lunas">Lunas</option>
+                            </select>
+                        </div>
+                        <button type="submit">Simpan Perubahan</button>
+                        <button type="button" onclick="cancelEditTagihan()" style="background-color: #f44336; margin-top: 10px;">Batal</button>
+                        <div id="edit-tagihan-success" class="success"></div>
+                        <div id="edit-tagihan-error" class="error"></div>
+                    </form>
+                </div>
+            </div>
+
 
             <div id="guru-tagihan" class="tabcontent">
                 <h2>Tagihan Siswa</h2>
@@ -252,10 +133,18 @@
                                 <option value="">Pilih Siswa</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="hari">Hari</label>
-                            <input type="text" id="hari" placeholder="Contoh: Senin, Rabu" required>
+                      <div class="form-group">
+                        <h3>Hari</h3>
+                        <div>
+                            <label><input type="checkbox" name="hari" value="Senin"> Senin</label>
+                            <label><input type="checkbox" name="hari" value="Selasa"> Selasa</label>
+                            <label><input type="checkbox" name="hari" value="Rabu"> Rabu</label>
+                            <label><input type="checkbox" name="hari" value="Kamis"> Kamis</label>
+                            <label><input type="checkbox" name="hari" value="Jumat"> Jumat</label>
+                            <label><input type="checkbox" name="hari" value="Sabtu"> Sabtu</label>
+                            <label><input type="checkbox" name="hari" value="Minggu"> Minggu</label>
                         </div>
+                    </div>
                         <div class="form-group">
                             <label for="jam">Jam</label>
                             <input type="text" id="jam" placeholder="Contoh: 15.00" required>
@@ -300,47 +189,37 @@
                     <tbody></tbody>
                 </table>
 
-                <div id="edit-form-container" class="form-container" style="display: none; margin-top: 20px;">
-                    <h2>Edit Jadwal</h2>
-                    <form id="edit-jadwal-form">
-                        <input type="hidden" id="edit-username">
-                        <div class="form-group">
-                            <label for="edit-nama-siswa">Nama Siswa</label>
-                            <input type="text" id="edit-nama-siswa" required>
+                <!-- Di bagian edit form, hapus field yang tidak diperlukan -->
+            <div id="edit-form-container" class="form-container" style="display: none; margin-top: 20px;">
+                <h2>Edit Jadwal</h2>
+                <form id="edit-jadwal-form">
+                    <input type="hidden" id="edit-username">
+                    <div class="form-group">
+                        <label for="edit-nama-siswa">Nama Siswa</label>
+                        <input type="text" id="edit-nama-siswa" required>
+                    </div>
+                    <div class="form-group">
+                        <h3>Hari</h3>
+                        <div>
+                            <label><input type="checkbox" name="edit-hari" value="Senin"> Senin</label>
+                            <label><input type="checkbox" name="edit-hari" value="Selasa"> Selasa</label>
+                            <label><input type="checkbox" name="edit-hari" value="Rabu"> Rabu</label>
+                            <label><input type="checkbox" name="edit-hari" value="Kamis"> Kamis</label>
+                            <label><input type="checkbox" name="edit-hari" value="Jumat"> Jumat</label>
+                            <label><input type="checkbox" name="edit-hari" value="Sabtu"> Sabtu</label>
+                            <label><input type="checkbox" name="edit-hari" value="Minggu"> Minggu</label>
                         </div>
-                        <div class="form-group">
-                            <label for="edit-hari">Hari</label>
-                            <input type="text" id="edit-hari" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="edit-jam">Jam</label>
-                            <input type="text" id="edit-jam" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="edit-tagihan">Tagihan per Sesi</label>
-                            <input type="number" id="edit-tagihan" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="edit-bulan">Bulan</label>
-                            <input type="text" id="edit-bulan" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="edit-jumlah">Jumlah Pertemuan</label>
-                            <input type="number" id="edit-jumlah" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="edit-status">Status Pembayaran</label>
-                            <select id="edit-status" required>
-                                <option value="Belum">Belum</option>
-                                <option value="Lunas">Lunas</option>
-                            </select>
-                        </div>
-                        <button type="submit">Simpan Perubahan</button>
-                        <button type="button" onclick="cancelEdit()" style="background-color: #f44336; margin-top: 10px;">Batal</button>
-                        <div id="edit-success" class="success"></div>
-                        <div id="edit-error" class="error"></div>
-                    </form>
-                </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-jam">Jam</label>
+                        <input type="text" id="edit-jam" required>
+                    </div>
+                    <button type="submit">Simpan Perubahan</button>
+                    <button type="button" onclick="cancelEdit()" style="background-color: #f44336; margin-top: 10px;">Batal</button>
+                    <div id="edit-success" class="success"></div>
+                    <div id="edit-error" class="error"></div>
+                </form>
+            </div>
             </div>
 
             <div id="guru-cetak" class="tabcontent">
@@ -459,375 +338,6 @@
         </div>
     </div>
 
-    <script>
-        // Hardcoded users
-        const users = [
-            { username: "guru", password: "guru123", role: "guru" },
-            { username: "murid", password: "murid123", role: "siswa" },
-            { username: "tika", password: "tika123", role: "siswa" }
-        ];
-
-        // API endpoint
-        const API_URL = "https://sheetdb.io/api/v1/r5268rzwhhrtw";
-
-        // Global variables
-        let currentUser = null;
-        let allSchedules = [];
-
-        // DOM elements
-        const loginSection = document.getElementById('login-section');
-        const guruDashboard = document.getElementById('guru-dashboard');
-        const siswaDashboard = document.getElementById('siswa-dashboard');
-        const loginForm = document.getElementById('login-form');
-        const loginError = document.getElementById('login-error');
-
-        // Login functionality
-        loginForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            const user = users.find(u => u.username === username && u.password === password);
-            
-            if (user) {
-                currentUser = user;
-                loginError.textContent = '';
-                loginSection.style.display = 'none';
-                
-                if (user.role === 'guru') {
-                    guruDashboard.style.display = 'block';
-                    loadGuruData();
-                } else {
-                    siswaDashboard.style.display = 'block';
-                    loadSiswaData();
-                }
-            } else {
-                loginError.textContent = 'Username atau password salah';
-            }
-        });
-
-        // Logout functionality
-        function logout() {
-            currentUser = null;
-            guruDashboard.style.display = 'none';
-            siswaDashboard.style.display = 'none';
-            loginSection.style.display = 'block';
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
-        }
-
-        // Tab functionality
-        function openTab(evt, tabName) {
-            const tabcontent = document.getElementsByClassName("tabcontent");
-            for (let i = 0; i < tabcontent.length; i++) {
-                tabcontent[i].style.display = "none";
-            }
-
-            const tablinks = document.getElementsByClassName("tablinks");
-            for (let i = 0; i < tablinks.length; i++) {
-                tablinks[i].className = tablinks[i].className.replace(" active", "");
-            }
-
-            document.getElementById(tabName).style.display = "block";
-            evt.currentTarget.className += " active";
-        }
-
-        // Load data for guru dashboard
-        async function loadGuruData() {
-            try {
-                const response = await fetch(`${API_URL}?students`);
-                const data = await response.json();
-                allSchedules = data;
-                
-                // Filter only siswa data
-                const siswaData = data.filter(item => item.role === 'siswa');
-                
-                // Populate jadwal mengajar table
-                const jadwalTable = document.getElementById('guru-jadwal-table').getElementsByTagName('tbody')[0];
-                jadwalTable.innerHTML = '';
-                siswaData.forEach(item => {
-                    const row = jadwalTable.insertRow();
-                    row.insertCell(0).textContent = item.nama_siswa;
-                    row.insertCell(1).textContent = item.hari;
-                    row.insertCell(2).textContent = item.jam;
-                });
-                
-                // Populate tagihan table
-                const tagihanTable = document.getElementById('guru-tagihan-table').getElementsByTagName('tbody')[0];
-                tagihanTable.innerHTML = '';
-                siswaData.forEach(item => {
-                    const row = tagihanTable.insertRow();
-                    row.insertCell(0).textContent = item.nama_siswa;
-                    row.insertCell(1).textContent = `Rp ${item.tagihan}`;
-                    row.insertCell(2).textContent = item.jumlah;
-                    row.insertCell(3).textContent = item.status;
-                });
-                
-                // Calculate total pendapatan
-                const lunasData = siswaData.filter(item => item.status === 'Lunas');
-                const totalPendapatan = lunasData.reduce((total, item) => {
-                     return total + (parseInt(item.jumlah) * parseInt(item.tagihan));
-                }, 0);
-                document.getElementById('total-pendapatan').textContent = `Rp ${totalPendapatan}`;
-                
-                // Populate nama siswa dropdown for adding new schedule
-                const namaSiswaSelect = document.getElementById('nama-siswa');
-                namaSiswaSelect.innerHTML = '<option value="">Pilih Siswa</option>';
-                const uniqueStudents = [...new Set(siswaData.map(item => item.nama_siswa))];
-                uniqueStudents.forEach(student => {
-                    const option = document.createElement('option');
-                    option.value = student;
-                    option.textContent = student;
-                    namaSiswaSelect.appendChild(option);
-                });
-                
-                // Populate edit jadwal table
-                const editTable = document.getElementById('edit-jadwal-table').getElementsByTagName('tbody')[0];
-                editTable.innerHTML = '';
-                siswaData.forEach(item => {
-                    const row = editTable.insertRow();
-                    row.insertCell(0).textContent = item.nama_siswa;
-                    row.insertCell(1).textContent = item.hari;
-                    row.insertCell(2).textContent = item.jam;
-                    
-                    const editCell = row.insertCell(3);
-                    const editButton = document.createElement('button');
-                    editButton.textContent = 'Edit';
-                    editButton.onclick = () => showEditForm(item);
-                    editButton.style.backgroundColor = '#2196F3';
-                    editCell.appendChild(editButton);
-                });
-                
-                // Populate siswa dropdown for invoice
-                const siswaInvoiceSelect = document.getElementById('siswa-invoice');
-                siswaInvoiceSelect.innerHTML = '<option value="">Pilih Siswa</option>';
-                uniqueStudents.forEach(student => {
-                    const option = document.createElement('option');
-                    option.value = student;
-                    option.textContent = student;
-                    siswaInvoiceSelect.appendChild(option);
-                });
-                
-                // Setup form for adding new schedule
-                document.getElementById('tambah-jadwal-form').addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    
-                    const namaSiswa = document.getElementById('nama-siswa').value;
-                    const hari = document.getElementById('hari').value;
-                    const jam = document.getElementById('jam').value;
-                    const tagihan = document.getElementById('tagihan').value;
-                    const bulan = document.getElementById('bulan').value;
-                    const jumlah = document.getElementById('jumlah').value;
-                    const status = document.getElementById('status').value;
-                    
-                    // Find username based on nama_siswa
-                    const siswa = allSchedules.find(item => item.nama_siswa === namaSiswa);
-                    if (!siswa) {
-                        document.getElementById('tambah-error').textContent = 'Siswa tidak ditemukan';
-                        return;
-                    }
-                    
-                    const newSchedule = {
-                        username: siswa.username,
-                        role: 'siswa',
-                        hari: hari,
-                        jam: jam,
-                        tagihan: tagihan,
-                        nama_siswa: namaSiswa,
-                        bulan: bulan,
-                        jumlah: jumlah,
-                        status: status
-                    };
-                    
-                    try {
-                        const response = await fetch(API_URL, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ data: [newSchedule] })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.created > 0) {
-                            document.getElementById('tambah-success').textContent = 'Jadwal berhasil ditambahkan!';
-                            document.getElementById('tambah-error').textContent = '';
-                            document.getElementById('tambah-jadwal-form').reset();
-                            // Reload data
-                            setTimeout(loadGuruData, 1000);
-                        } else {
-                            document.getElementById('tambah-error').textContent = 'Gagal menambahkan jadwal';
-                        }
-                    } catch (error) {
-                        document.getElementById('tambah-error').textContent = 'Terjadi kesalahan: ' + error.message;
-                    }
-                });
-                
-            } catch (error) {
-                console.error('Error loading data:', error);
-            }
-        }
-
-        // Show edit form
-        function showEditForm(item) {
-            document.getElementById('edit-username').value = item.username;
-            document.getElementById('edit-nama-siswa').value = item.nama_siswa;
-            document.getElementById('edit-hari').value = item.hari;
-            document.getElementById('edit-jam').value = item.jam;
-            document.getElementById('edit-tagihan').value = item.tagihan;
-            document.getElementById('edit-bulan').value = item.bulan;
-            document.getElementById('edit-jumlah').value = item.jumlah;
-            document.getElementById('edit-status').value = item.status;
-            
-            document.getElementById('edit-form-container').style.display = 'block';
-            document.getElementById('edit-jadwal-form').scrollIntoView();
-            
-            // Setup form submission
-            document.getElementById('edit-jadwal-form').onsubmit = async function(e) {
-                e.preventDefault();
-                
-                const updatedData = {
-                    username: document.getElementById('edit-username').value,
-                    role: 'siswa',
-                    nama_siswa: document.getElementById('edit-nama-siswa').value,
-                    hari: document.getElementById('edit-hari').value,
-                    jam: document.getElementById('edit-jam').value,
-                    tagihan: document.getElementById('edit-tagihan').value,
-                    bulan: document.getElementById('edit-bulan').value,
-                    jumlah: document.getElementById('edit-jumlah').value,
-                    status: document.getElementById('edit-status').value
-                };
-                
-                try {
-                    // First, delete the old record
-                    const deleteResponse = await fetch(`${API_URL}/username/${item.username}`, {
-                        method: 'DELETE'
-                    });
-                    
-                    const deleteResult = await deleteResponse.json();
-                    
-                    if (deleteResult.deleted > 0) {
-                        // Then, add the new record
-                        const addResponse = await fetch(API_URL, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ data: [updatedData] })
-                        });
-                        
-                        const addResult = await addResponse.json();
-                        
-                        if (addResult.created > 0) {
-                            document.getElementById('edit-success').textContent = 'Jadwal berhasil diperbarui!';
-                            document.getElementById('edit-error').textContent = '';
-                            // Reload data
-                            setTimeout(loadGuruData, 1000);
-                            cancelEdit();
-                        } else {
-                            document.getElementById('edit-error').textContent = 'Gagal memperbarui jadwal';
-                        }
-                    } else {
-                        document.getElementById('edit-error').textContent = 'Gagal menghapus jadwal lama';
-                    }
-                } catch (error) {
-                    document.getElementById('edit-error').textContent = 'Terjadi kesalahan: ' + error.message;
-                }
-            };
-        }
-
-        // Cancel edit
-        function cancelEdit() {
-            document.getElementById('edit-form-container').style.display = 'none';
-            document.getElementById('edit-success').textContent = '';
-            document.getElementById('edit-error').textContent = '';
-        }
-
-        // Generate invoice for selected student
-        function generateInvoice() {
-            const selectedStudent = document.getElementById('siswa-invoice').value;
-            if (!selectedStudent) return;
-            
-            const studentData = allSchedules.find(item => item.nama_siswa === selectedStudent && item.role === 'siswa');
-            if (!studentData) return;
-            
-            document.getElementById('inv-nama').textContent = studentData.nama_siswa;
-            document.getElementById('inv-bulan').textContent = studentData.bulan;
-            
-            const jadwalTbody = document.getElementById('inv-jadwal');
-            jadwalTbody.innerHTML = '';
-            
-            const hariList = studentData.hari.split(', ');
-            hariList.forEach(hari => {
-                const row = jadwalTbody.insertRow();
-                row.insertCell(0).textContent = hari;
-                row.insertCell(1).textContent = studentData.jam;
-            });
-            
-            document.getElementById('inv-jumlah').textContent = studentData.jumlah;
-            document.getElementById('inv-tagihan').textContent = studentData.tagihan;
-            document.getElementById('inv-total').textContent = parseInt(studentData.jumlah) * parseInt(studentData.tagihan);
-            
-            document.getElementById('invoice-container').style.display = 'block';
-        }
-
-        // Load data for siswa dashboard
-        async function loadSiswaData() {
-            try {
-                const response = await fetch(`${API_URL}?students`);
-                const data = await response.json();
-                
-                // Filter data for current siswa
-                const siswaData = data.filter(item => item.username === currentUser.username);
-                
-                // Populate jadwal table
-                const jadwalTable = document.getElementById('siswa-jadwal-table').getElementsByTagName('tbody')[0];
-                jadwalTable.innerHTML = '';
-                siswaData.forEach(item => {
-                    const row = jadwalTable.insertRow();
-                    row.insertCell(0).textContent = item.hari;
-                    row.insertCell(1).textContent = item.jam;
-                    row.insertCell(2).textContent = 'Guru';
-                });
-                
-                // Populate tagihan table
-                const tagihanTable = document.getElementById('siswa-tagihan-table').getElementsByTagName('tbody')[0];
-                tagihanTable.innerHTML = '';
-                siswaData.forEach(item => {
-                    const row = tagihanTable.insertRow();
-                    row.insertCell(0).textContent = item.bulan;
-                    row.insertCell(1).textContent = item.jumlah;
-                    row.insertCell(2).textContent = `Rp ${item.tagihan}`;
-                    row.insertCell(3).textContent = item.status;
-                });
-                
-                // Populate invoice
-                if (siswaData.length > 0) {
-                    const studentData = siswaData[0];
-                    document.getElementById('siswa-inv-nama').textContent = studentData.nama_siswa;
-                    document.getElementById('siswa-inv-bulan').textContent = studentData.bulan;
-                    
-                    const jadwalTbody = document.getElementById('siswa-inv-jadwal');
-                    jadwalTbody.innerHTML = '';
-                    
-                    const hariList = studentData.hari.split(', ');
-                    hariList.forEach(hari => {
-                        const row = jadwalTbody.insertRow();
-                        row.insertCell(0).textContent = hari;
-                        row.insertCell(1).textContent = studentData.jam;
-                    });
-                    
-                    document.getElementById('siswa-inv-jumlah').textContent = studentData.jumlah;
-                    document.getElementById('siswa-inv-tagihan').textContent = studentData.tagihan;
-                    document.getElementById('siswa-inv-total').textContent = parseInt(studentData.jumlah) * parseInt(studentData.tagihan);
-                }
-                
-            } catch (error) {
-                console.error('Error loading data:', error);
-            }
-        }
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
