@@ -1,6 +1,0 @@
-body { font-family: Arial, sans-serif; padding: 20px; }
-.hidden { display: none; }
-.error { color: red; }
-.info { color: green; }
-table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
