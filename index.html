@@ -1,341 +1,166 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jadwal Les</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>MAPA - Bimbingan Belajar Les Privat Terpercaya</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <h1>Jadwal Les</h1>
+        <nav>
+            <div class="logo">MAPA</div>
+            <ul>
+                <li><a href="#home">Beranda</a></li>
+                <li><a href="#about">Tentang Kami</a></li>
+                <li><a href="#programs">Program Unggulan</a></li>
+                <li><a href="#features">Fitur Layanan</a></li>
+                <li><a href="#testimonials">Testimoni</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="#contact">Kontak</a></li>
+            </ul>
+            <a href="https://wa.me/6288211058777" class="btn">Daftar Sekarang</a>
+        </nav>
     </header>
 
-    <div class="container">
-        <!-- Login Section -->
-        <div id="login-section" class="login-container">
-            <h2>Login</h2>
-            <form id="login-form">
-                <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" required>
+    <main>
+        <section id="home" class="hero-section">
+            <div class="container">
+                <h1>Bimbingan Belajar Les Privat Terpercaya</h1>
+                <p>Kami Menyediakan Layanan Terbaik Guru Les Privat untuk TK, SD, SMP, SMA. Pendampingan Belajar Privat 1 Guru 1 Siswa, Secara Profesional dengan Smart Methode.</p>
+                <a href="https://wa.me/6288211058777" class="btn-primary">Daftar Sekarang</a>
+            </div>
+        </section>
+
+        <section id="why-us" class="section-padding">
+            <div class="container">
+                <h2>Kenapa Harus MAPA</h2>
+                <p><strong>MAPA</strong> penyedia les privat matematika SD SMP dan SMA kerumah berpengalaman. guru datang kerumah , belajar sesuai keahlian guru, belajar berdasarkan materi sekolah serta belajar materi materi yang sulit dipahami siswa serta membantu membimbing siswa dalam kesulitan PR.</p>
+            </div>
+        </section>
+
+        <section id="tutors" class="section-padding bg-light">
+            <div class="container">
+                <h2>Pengajar dari Sarjana Pendidikan Matematika</h2>
+                <!-- Placeholder for tutor images/logos -->
+            </div>
+        </section>
+
+        <section id="learning-system" class="section-padding">
+            <div class="container">
+                <h2>Layanan Sistem Belajar di MAPA</h2>
+                <div class="system-cards">
+                    <div class="card">
+                        <h3>Home Tutoring</h3>
+                        <p>Panggil guru les privat ke rumah terbaik dan terpercaya.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Online Tutoring</h3>
+                        <p>Belajar dari mana saja, kapan saja dengan tutor terbaik</p>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" required>
+            </div>
+        </section>
+
+        <section id="programs" class="section-padding bg-light">
+            <div class="container">
+                <h2>Program Unggulan</h2>
+                <div class="program-grid">
+                    <!-- Program items will be dynamically added or hardcoded here -->
+                    <div class="program-item">
+                        <img src="https://via.placeholder.com/300x200" alt="Les Privat Calistung">
+    
+                        <h3>Les Privat Calistung</h3>
+                        <p>Kemampuan membaca, menulis, dan berhitung merupakan kunci utama bagi anak-anak dalam proses belajar. Dengan kemampuan calistung yang baik.</p>
+                        <a href="https://wa.me/6288211058777" class="btn-secondary">Daftar Sekarang</a>
+                    </div>
+                    <div class="program-item">
+                        <img src="https://via.placeholder.com/300x200" alt="Les Privat SD">
+                        
+                        <h3>Les Privat SD</h3>
+                        <p>layanan les privat matematika untuk siswa tingkat SD, mulai dari kelas 1 hingga kelas 6. Kami menawarkan berbagai mata pelajaran SD yang meliputi Matematika dan PR pelajaran umum</p>
+                        <a href="https://wa.me/6288211058777" class="btn-secondary">Daftar Sekarang</a>
+                    </div>
+                    <div class="program-item">
+                        <img src="https://via.placeholder.com/300x200" alt="Les Privat SMP">
+                        <p class="enrolled">1.000+ peserta telah mendaftar</p>
+                        <h3>Les Privat SMP</h3>
+                        <p>layanan les privat paripurna untuk siswa tingkat SMP, mulai dari kelas 7 hingga kelas 9. Kami menawarkan berbagai mata pelajaran SMP yang meliputi Matematika dan IPA</p>
+                        <a href="https://wa.me/6288211058777" class="btn-secondary">Daftar Sekarang</a>
+                    </div>
+                    <div class="program-item">
+                        <img src="https://via.placeholder.com/300x200" alt="Les Privat SMA">
+                        
+                        <h3>Les Privat SMA</h3>
+                        <p>layanan les privat matematika untuk siswa tingkat SMA, mulai dari kelas 11 hingga kelas 12. Kami menawarkan berbagai mata pelajaran SMP yang meliputi Matematika dan IPA</p>
+                        <a href="https://wa.me/6288211058777" class="btn-secondary">Daftar Sekarang</a>
+                    </div>
+                
                 </div>
-                <button type="submit">Login</button>
-                <div id="login-error" class="error"></div>
-            </form>
+                <div class="text-center">
+                    <a href="#contact" class="btn-tertiary">Hubungi Kami untuk Program Lainnya</a>
+                </div>
+            </div>
+        </section>
+
+      
+
+        <section id="testimonials" class="section-padding bg-light">
+            <div class="container">
+                <h2>Cerita Siswa & Wali Siswa</h2>
+                <div class="testimonial-carousel">
+                    <!-- Testimonials will be dynamically added or hardcoded here -->
+                    <div class="testimonial-item">
+                        <p>"MAPA benar-benar membantu saya memahami materi dengan lebih baik dan meningkatkan nilai ujian saya!"</p>
+                        <h4>Rina Sari</h4>
+                        <span>Pelajar</span>
+                    </div>
+                    <div class="testimonial-item">
+                        <p>"Pelayanan di MAPA sangat memuaskan. Tutor efektif dan motivatif, hasilnya nilai saya naik pesat."</p>
+                        <h4>Ardi Pratama</h4>
+                        <span>Pelajar</span>
+                    </div>
+                    <div class="testimonial-item">
+                        <p>"MAPA membantu anak saya meraih nilai terbaik di kelas. Tutor yang berpengalaman dan sabar membuat proses belajar menjadi efektif."</p>
+                        <h4>Ibu Nina</h4>
+                        <span>Orang tua Siswa</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="faq" class="section-padding">
+            <div class="container">
+                <h2>Frequently Asked Questions</h2>
+                <!-- FAQ items will be dynamically added or hardcoded here -->
+            </div>
+        </section>
+
+        <section id="cta" class="section-padding cta-section">
+            <div class="container">
+                <h2>TUNGGU APALAGI !</h2>
+                <p>Ayo Daftar Les Privat Sekarang !</p>
+                <p>Bimbingan Belajar Les Privat Terbaik dan Terbesar di Jakarta, Pilihan Orang Tua. Menerima Les Privat Online Seluruh Indonesia & Offline di Jabodetabek</p>
+                <a href="https://wa.me/6288211058777" class="btn-primary">Daftar Sekarang</a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-info">
+                <p><strong>Alamat Kantor</strong></p>
+                <p>Jl. Pd. Petir No.35, RT.04/RW.05, Pd. Petir, Kec. Bojongsari, Kota Depok, Jawa Barat 16517</p>
+                <p>Telp / WhatsApp CS : 0811 8000 2626 / Ka Juli</p>
+            </div>
+            <p class="copyright">2025 MAPA | PT Sahabat Pendidikan Indonesia. All rights reserved.</p>
         </div>
+    </footer>
 
-        <!-- Guru Dashboard -->
-        <div id="guru-dashboard" class="dashboard">
-            <div class="tab">
-                <button class="tablinks active" onclick="openTab(event, 'guru-jadwal')">Jadwal Mengajar</button>
-                <button class="tablinks" onclick="openTab(event, 'guru-tagihan')">Tagihan Siswa</button>
-                <button class="tablinks" onclick="openTab(event, 'guru-edit-tagihan')">Edit Tagihan</button>
-                <button class="tablinks" onclick="openTab(event, 'guru-pendapatan')">Pendapatan</button>
-                <button class="tablinks" onclick="openTab(event, 'guru-tambah')">Tambah Jadwal</button>
-                <button class="tablinks" onclick="openTab(event, 'guru-edit')">Edit Jadwal</button>
-                <button class="tablinks" onclick="openTab(event, 'guru-cetak')">Cetak Invoice</button>
-                <button class="tablinks" onclick="logout()" style="float: right; background-color: #f44336;">Logout</button>
-            </div>
-
-            <div id="guru-jadwal" class="tabcontent" style="display: block;">
-                <h2>Jadwal Mengajar</h2>
-                <table id="guru-jadwal-table">
-                    <thead>
-                        <tr>
-                            <th>Nama Siswa</th>
-                            <th>Hari</th>
-                            <th>Jam</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-
-            <div id="guru-edit-tagihan" class="tabcontent">
-                <h2>Edit Tagihan Siswa</h2>
-                <table id="edit-tagihan-table">
-                    <thead>
-                        <tr>
-                            <th>Nama Siswa</th>
-                            <th>Tagihan per Sesi</th>
-                            <th>Jumlah Pertemuan</th>
-                            <th>Status</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-
-                            <div id="edit-tagihan-form-container" class="form-container" style="display: none; margin-top: 20px;">
-                    <h2>Edit Tagihan</h2>
-                    <form id="edit-tagihan-form">
-                        <input type="hidden" id="edit-tagihan-username">
-                        <div class="form-group">
-                            <label for="edit-tagihan-nama-siswa">Nama Siswa</label>
-                            <input type="text" id="edit-tagihan-nama-siswa" readonly>
-                        </div>
-                        <div class="form-group">
-                            <label for="edit-tagihan-tagihan">Tagihan per Sesi</label>
-                            <input type="number" id="edit-tagihan-tagihan" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="edit-tagihan-jumlah">Jumlah Pertemuan</label>
-                            <input type="number" id="edit-tagihan-jumlah" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="edit-tagihan-status">Status Pembayaran</label>
-                            <select id="edit-tagihan-status" required>
-                                <option value="Belum">Belum</option>
-                                <option value="Lunas">Lunas</option>
-                            </select>
-                        </div>
-                        <button type="submit">Simpan Perubahan</button>
-                        <button type="button" onclick="cancelEditTagihan()" style="background-color: #f44336; margin-top: 10px;">Batal</button>
-                        <div id="edit-tagihan-success" class="success"></div>
-                        <div id="edit-tagihan-error" class="error"></div>
-                    </form>
-                </div>
-            </div>
-
-
-            <div id="guru-tagihan" class="tabcontent">
-                <h2>Tagihan Siswa</h2>
-                <table id="guru-tagihan-table">
-                    <thead>
-                        <tr>
-                            <th>Nama Siswa</th>
-                            <th>Tagihan per Sesi</th>
-                            <th>Jumlah Pertemuan</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-
-            <div id="guru-pendapatan" class="tabcontent">
-                <h2>Total Pendapatan Bulanan</h2>
-                <div id="total-pendapatan" style="font-size: 24px; font-weight: bold; text-align: center; margin: 20px 0;"></div>
-            </div>
-
-            <div id="guru-tambah" class="tabcontent">
-                <div class="form-container">
-                    <h2>Tambah Jadwal Baru</h2>
-                    <form id="tambah-jadwal-form">
-                        <div class="form-group">
-                            <label for="nama-siswa">Nama Siswa</label>
-                            <select id="nama-siswa" required>
-                                <option value="">Pilih Siswa</option>
-                            </select>
-                        </div>
-                      <div class="form-group">
-                        <h3>Hari</h3>
-                        <div>
-                            <label><input type="checkbox" name="hari" value="Senin"> Senin</label>
-                            <label><input type="checkbox" name="hari" value="Selasa"> Selasa</label>
-                            <label><input type="checkbox" name="hari" value="Rabu"> Rabu</label>
-                            <label><input type="checkbox" name="hari" value="Kamis"> Kamis</label>
-                            <label><input type="checkbox" name="hari" value="Jumat"> Jumat</label>
-                            <label><input type="checkbox" name="hari" value="Sabtu"> Sabtu</label>
-                            <label><input type="checkbox" name="hari" value="Minggu"> Minggu</label>
-                        </div>
-                    </div>
-                        <div class="form-group">
-                            <label for="jam">Jam</label>
-                            <input type="text" id="jam" placeholder="Contoh: 15.00" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="tagihan">Tagihan per Sesi</label>
-                            <input type="number" id="tagihan" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="bulan">Bulan</label>
-                            <input type="text" id="bulan" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="jumlah">Jumlah Pertemuan</label>
-                            <input type="number" id="jumlah" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="status">Status Pembayaran</label>
-                            <select id="status" required>
-                                <option value="Belum">Belum</option>
-                                <option value="Lunas">Lunas</option>
-                            </select>
-                        </div>
-                        <button type="submit">Simpan</button>
-                        <div id="tambah-success" class="success"></div>
-                        <div id="tambah-error" class="error"></div>
-                    </form>
-                </div>
-            </div>
-
-            <div id="guru-edit" class="tabcontent">
-                <h2>Edit Jadwal Siswa</h2>
-                <table id="edit-jadwal-table">
-                    <thead>
-                        <tr>
-                            <th>Nama Siswa</th>
-                            <th>Hari</th>
-                            <th>Jam</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-
-                <!-- Di bagian edit form, hapus field yang tidak diperlukan -->
-            <div id="edit-form-container" class="form-container" style="display: none; margin-top: 20px;">
-                <h2>Edit Jadwal</h2>
-                <form id="edit-jadwal-form">
-                    <input type="hidden" id="edit-username">
-                    <div class="form-group">
-                        <label for="edit-nama-siswa">Nama Siswa</label>
-                        <input type="text" id="edit-nama-siswa" required>
-                    </div>
-                    <div class="form-group">
-                        <h3>Hari</h3>
-                        <div>
-                            <label><input type="checkbox" name="edit-hari" value="Senin"> Senin</label>
-                            <label><input type="checkbox" name="edit-hari" value="Selasa"> Selasa</label>
-                            <label><input type="checkbox" name="edit-hari" value="Rabu"> Rabu</label>
-                            <label><input type="checkbox" name="edit-hari" value="Kamis"> Kamis</label>
-                            <label><input type="checkbox" name="edit-hari" value="Jumat"> Jumat</label>
-                            <label><input type="checkbox" name="edit-hari" value="Sabtu"> Sabtu</label>
-                            <label><input type="checkbox" name="edit-hari" value="Minggu"> Minggu</label>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-jam">Jam</label>
-                        <input type="text" id="edit-jam" required>
-                    </div>
-                    <button type="submit">Simpan Perubahan</button>
-                    <button type="button" onclick="cancelEdit()" style="background-color: #f44336; margin-top: 10px;">Batal</button>
-                    <div id="edit-success" class="success"></div>
-                    <div id="edit-error" class="error"></div>
-                </form>
-            </div>
-            </div>
-
-            <div id="guru-cetak" class="tabcontent">
-                <div class="form-container">
-                    <h2>Cetak Invoice</h2>
-                    <div class="form-group">
-                        <label for="siswa-invoice">Pilih Siswa</label>
-                        <select id="siswa-invoice">
-                            <option value="">Pilih Siswa</option>
-                        </select>
-                    </div>
-                    <button onclick="generateInvoice()">Tampilkan Invoice</button>
-                </div>
-
-                <div id="invoice-container" class="invoice" style="display: none;">
-                    <div class="invoice-header">
-                        <h2>INVOICE</h2>
-                        <p>Les Privat</p>
-                    </div>
-                    <div class="invoice-details">
-                        <p><strong>Nama Siswa:</strong> <span id="inv-nama"></span></p>
-                        <p><strong>Bulan:</strong> <span id="inv-bulan"></span></p>
-                    </div>
-                    <table class="invoice-table">
-                        <thead>
-                            <tr>
-                                <th>Hari</th>
-                                <th>Jam</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inv-jadwal"></tbody>
-                    </table>
-                    <div class="invoice-details">
-                        <p><strong>Jumlah Pertemuan:</strong> <span id="inv-jumlah"></span></p>
-                        <p><strong>Tagihan per Sesi:</strong> Rp <span id="inv-tagihan"></span></p>
-                    </div>
-                    <div class="invoice-total">
-                        <p>Total Tagihan: Rp <span id="inv-total"></span></p>
-                    </div>
-                    <div class="print-btn">
-                        <button onclick="window.print()">Cetak Invoice</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Siswa Dashboard -->
-        <div id="siswa-dashboard" class="dashboard">
-            <div class="tab">
-                <button class="tablinks active" onclick="openTab(event, 'siswa-jadwal')">Jadwal Saya</button>
-                <button class="tablinks" onclick="openTab(event, 'siswa-tagihan')">Tagihan Saya</button>
-                <button class="tablinks" onclick="openTab(event, 'siswa-cetak')">Cetak Invoice</button>
-                <button class="tablinks" onclick="logout()" style="float: right; background-color: #f44336;">Logout</button>
-            </div>
-
-            <div id="siswa-jadwal" class="tabcontent" style="display: block;">
-                <h2>Jadwal Saya</h2>
-                <table id="siswa-jadwal-table">
-                    <thead>
-                        <tr>
-                            <th>Hari</th>
-                            <th>Jam</th>
-                            <th>Guru</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-
-            <div id="siswa-tagihan" class="tabcontent">
-                <h2>Tagihan Saya</h2>
-                <table id="siswa-tagihan-table">
-                    <thead>
-                        <tr>
-                            <th>Bulan</th>
-                            <th>Jumlah Pertemuan</th>
-                            <th>Tagihan per Sesi</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-
-            <div id="siswa-cetak" class="tabcontent">
-                <div id="siswa-invoice-container" class="invoice">
-                    <div class="invoice-header">
-                        <h2>INVOICE</h2>
-                        <p>Les Privat</p>
-                    </div>
-                    <div class="invoice-details">
-                        <p><strong>Nama Siswa:</strong> <span id="siswa-inv-nama"></span></p>
-                        <p><strong>Bulan:</strong> <span id="siswa-inv-bulan"></span></p>
-                    </div>
-                    <table class="invoice-table">
-                        <thead>
-                            <tr>
-                                <th>Hari</th>
-                                <th>Jam</th>
-                            </tr>
-                        </thead>
-                        <tbody id="siswa-inv-jadwal"></tbody>
-                    </table>
-                    <div class="invoice-details">
-                        <p><strong>Jumlah Pertemuan:</strong> <span id="siswa-inv-jumlah"></span></p>
-                        <p><strong>Tagihan per Sesi:</strong> Rp <span id="siswa-inv-tagihan"></span></p>
-                    </div>
-                    <div class="invoice-total">
-                        <p>Total Tagihan: Rp <span id="siswa-inv-total"></span></p>
-                    </div>
-                    <div class="print-btn">
-                        <button onclick="window.print()">Cetak Invoice</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="whatsapp-widget">
+        <a href="https://wa.me/6288211058777" target="_blank">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp Chat">
+        </a>
     </div>
 
     <script src="script.js"></script>
