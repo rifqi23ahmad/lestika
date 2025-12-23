@@ -12,7 +12,7 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  // State Data Diri (Hanya untuk Register)
+  // State Data Diri
   const [nama, setNama] = useState('');
   const [kelas, setKelas] = useState('');
   const [jenjang, setJenjang] = useState('SD'); 
@@ -23,47 +23,61 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
 
-    if (!isLogin && password !== confirmPassword) {
+    const cleanPhone = phone.trim(); 
+    const cleanPassword = password.trim();
+
+    if (!cleanPhone || !cleanPassword) {
+        alert("Nomor WA dan Password wajib diisi.");
+        setLoading(false);
+        return;
+    }
+
+    if (!isLogin && cleanPassword !== confirmPassword) {
         alert('Password dan Ulangi Password tidak sama!');
         setLoading(false);
         return;
     }
 
-    // --- RAHASIA AGAR DITERIMA SUPABASE ---
-    // Kita tempelkan @mapa.com di belakang nomor WA
-    // User tidak akan melihat ini, hanya sistem yang tahu.
-    const waLogin = `${phone}@mapa.com`;
+    // Email palsu untuk login
+    const waLogin = `${cleanPhone}@mapa.com`;
     
-    let error;
-    
-    if (isLogin) {
-        // --- LOGIKA LOGIN ---
-        const { error: signInError } = await supabase.auth.signInWithPassword({ 
-            email: waLogin, 
-            password 
-        });
-        error = signInError;
-    } else {
-        // --- LOGIKA REGISTER ---
-        const { error: signUpError } = await supabase.auth.signUp({ 
-            email: waLogin, 
-            password,
-            options: {
-                data: {
-                    nama: nama,
-                    kelas: kelas,
-                    jenjang: jenjang,
-                    usia: usia,
-                    nama_orang_tua: namaOrangTua,
-                    phone: phone // Simpan nomor asli di sini
-                }
-            }
-        });
-        error = signUpError;
-    }
+    try {
+        if (isLogin) {
+            // --- LOGIN ---
+            const { error } = await supabase.auth.signInWithPassword({ 
+                email: waLogin, 
+                password: cleanPassword 
+            });
+            if (error) throw error;
+            navigate('/dashboard');
 
-    if (error) {
-        // Pesan error kita ubah bahasanya agar user tidak bingung soal "email"
+        } else {
+            // --- REGISTER (Disederhanakan) ---
+            // Kita kirim SEMUA data ke 'options.data'.
+            // Trigger database akan otomatis memindahkannya ke tabel 'profiles'.
+            const { error } = await supabase.auth.signUp({ 
+                email: waLogin, 
+                password: cleanPassword,
+                options: {
+                    data: { 
+                        full_name: nama, 
+                        phone: cleanPhone,
+                        jenjang: jenjang,
+                        kelas: kelas,
+                        usia: usia,
+                        nama_orang_tua: namaOrangTua
+                    }
+                }
+            });
+
+            if (error) throw error;
+            
+            alert("Pendaftaran berhasil! Silakan login.");
+            setIsLogin(true); // Pindah ke mode login
+        }
+
+    } catch (error) {
+        console.error("Auth Error:", error);
         if (error.message.includes('Invalid login credentials')) {
             alert('Nomor WhatsApp atau Password salah.');
         } else if (error.message.includes('already registered')) {
@@ -71,10 +85,9 @@ export default function Auth() {
         } else {
             alert('Gagal: ' + error.message);
         }
-    } else {
-        navigate('/dashboard');
+    } finally {
+        setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -84,7 +97,6 @@ export default function Auth() {
           
           <form onSubmit={handleAuth} style={{display:'flex', flexDirection:'column', gap:'15px', textAlign:'left'}}>
             
-            {/* --- Form Khusus Register --- */}
             {!isLogin && (
                 <>
                     <div>
@@ -120,7 +132,6 @@ export default function Auth() {
                 </>
             )}
 
-            {/* --- Form Login & Register --- */}
             <div>
                 <label>Nomor WhatsApp</label>
                 <input 
