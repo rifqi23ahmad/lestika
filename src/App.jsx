@@ -5,18 +5,19 @@ import Navbar from './components/Navbar'
 import LandingPage from './pages/LandingPage'
 import Auth from './pages/Auth'
 import Dashboard from './pages/Dashboard'
-import './index.css' // Pastikan CSS terimport
 
 function App() {
   const [session, setSession] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Cek session saat ini
+    // Cek session awal
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
+      setLoading(false)
     })
 
-    // Listen perubahan auth (login/logout)
+    // Listen perubahan login/logout
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -26,15 +27,19 @@ function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  if (loading) return null; // Tunggu cek session selesai
+
   return (
     <Router>
       <Navbar session={session} />
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        {/* Redirect ke Dashboard jika sudah login */}
         <Route 
             path="/login" 
             element={!session ? <Auth /> : <Navigate to="/dashboard" />} 
         />
+        {/* Redirect ke Login jika belum login */}
         <Route 
             path="/dashboard" 
             element={session ? <Dashboard session={session} /> : <Navigate to="/login" />} 
