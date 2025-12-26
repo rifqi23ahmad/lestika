@@ -1,44 +1,43 @@
-import React, { useEffect, useState } from 'react';
-import { authService } from '../../services/authService';
-import AdminDashboard from './AdminDashboard';
-import StudentDashboard from './StudentDashboard';
+// src/pages/Dashboard/StudentDashboard.jsx
+import React from 'react';
+import { useDashboardData } from '../../hooks/useDashboardData';
+import { supabase } from '../../lib/supabaseClient';
 
-export default function Dashboard({ session }) {
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function StudentDashboard({ user }) {
+  const { packages } = useDashboardData();
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (session?.user) {
-        const { data } = await authService.getUserProfile(session.user.id);
-        setProfile(data);
-        setLoading(false);
-      }
-    };
-    loadProfile();
-  }, [session]);
+  const handleBuy = async (pkg) => {
+    if (!confirm(`Beli paket ${pkg.name}?`)) return;
+    
+    const { error } = await supabase.from('invoices').insert({
+        user_id: user.id, 
+        package_name: pkg.name, 
+        amount: pkg.price, 
+        status: 'Belum Bayar'
+    });
+    
+    if (!error) alert('Tagihan berhasil dibuat!');
+    else alert('Gagal membuat tagihan.');
+  };
 
-  if (loading) return <div className="text-center p-10">Loading Profile...</div>;
-
-  // Liskov Substitution / Strategy Pattern:
-  // Render komponen berbeda berdasarkan role, tapi props yang dikirim konsisten
   return (
-    <div className="container section-padding">
-      <Header profile={profile} />
-      {profile?.role === 'admin' ? (
-        <AdminDashboard user={session.user} />
-      ) : (
-        <StudentDashboard user={session.user} />
-      )}
+    <div>
+      <h2 className="text-xl font-bold mb-4">Pilih Paket Belajar</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {packages.map(pkg => (
+          <div key={pkg.id} className="border p-4 rounded shadow bg-white">
+            <h3 className="font-bold text-lg">{pkg.name}</h3>
+            <p className="text-green-600 font-bold">Rp {pkg.price.toLocaleString()}</p>
+            <p className="text-gray-600 text-sm mb-4">{pkg.session_info}</p>
+            <button 
+                onClick={() => handleBuy(pkg)}
+                className="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-700"
+            >
+                Pilih Paket
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
-
-const Header = ({ profile }) => (
-    <div className="flex justify-between mb-5">
-        <h1>Halo, {profile?.full_name}</h1>
-        <span className={profile?.role === 'admin' ? 'bg-red-500 badge' : 'bg-green-500 badge'}>
-            {profile?.role === 'admin' ? 'ADMIN' : 'SISWA'}
-        </span>
-    </div>
-);
