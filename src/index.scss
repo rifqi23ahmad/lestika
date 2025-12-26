@@ -317,3 +317,61 @@ label {
   justify-content: center;
   white-space: nowrap; /* Teks tidak turun baris */
 }
+
+/* --- TAMBAHAN STYLE MATERIAL DESIGN (MOBILE FRIENDLY) --- */
+
+/* Style Gambar Paket */
+.card-img-top {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 12px 12px 0 0;
+  margin: -20px -20px 15px -20px; /* Agar gambar mepet ke pinggir kartu */
+  width: calc(100% + 40px);
+}
+
+/* Badge Status / Harga */
+.price-tag {
+  color: #10B981;
+  font-weight: 800;
+  font-size: 1.2rem;
+  margin: 5px 0;
+}
+
+/* Floating Action Button (FAB) ala Aplikasi Android untuk tombol Tambah */
+.fab-btn {
+  position: fixed;
+  bottom: 80px; /* Di atas navbar bawah */
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #4F46E5;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+  border: none;
+  cursor: pointer;
+  z-index: 900;
+  transition: transform 0.2s;
+  
+  &:active { transform: scale(0.9); }
+}
+
+/* Modal / Form Overlay di HP */
+.mobile-modal {
+  background: white;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  margin-bottom: 20px;
+  border: 1px solid #eee;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
