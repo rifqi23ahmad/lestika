@@ -1,25 +1,31 @@
-import { useState, useEffect } from 'react';
-import { dataService } from '../services/dataService';
+import { supabase } from '../lib/supabaseClient';
 
-export const useDashboardData = (user, isAdmin) => {
-  const [packages, setPackages] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchPackages = async () => {
+export const storageService = {
+  uploadFile: async (file, bucket = 'images', folder = 'public') => {
     try {
-      setLoading(true);
-      const data = await dataService.getPackages();
-      setPackages(data);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${folder}/${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      // Ambil Public URL
+      const { data: publicUrlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(fileName);
+
+      return { url: publicUrlData.publicUrl, error: null };
     } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
+      console.error('Upload Error:', error);
+      return { url: null, error };
     }
-  };
+  },
 
-  useEffect(() => {
-    if (user) fetchPackages();
-  }, [user]);
-
-  return { packages, loading, refetch: fetchPackages };
+  deleteFile: async (path, bucket = 'images') => {
+    const { error } = await supabase.storage.from(bucket).remove([path]);
+    return { error };
+  }
 };

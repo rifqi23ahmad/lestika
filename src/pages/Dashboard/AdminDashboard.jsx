@@ -1,30 +1,21 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import React from 'react';
+import { useDashboardData } from '../../hooks/useDashboardData';
+import PackageManager from '../../components/admin/PackageManager';
+import WebsiteEditor from '../../components/admin/WebsiteEditor';
 
-export const useDashboardData = (userId = null, isAdmin = false) => {
-  const [packages, setPackages] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function AdminDashboard() {
+  // Logic fetching ada di hook, UI jadi bersih
+  const { packages, refetch } = useDashboardData(null, true); 
 
-  const fetchPackages = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('packages')
-        .select('*')
-        .order('price');
+  return (
+    <div>
+      {/* Bagian Kelola Paket */}
+      <PackageManager currentPackages={packages} onUpdate={refetch} />
       
-      if (error) throw error;
-      setPackages(data || []);
-    } catch (error) {
-      console.error("Error fetching packages:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPackages();
-  }, []);
-
-  return { packages, loading, refetch: fetchPackages };
-};
+      <hr className="my-10 border-gray-200" />
+      
+      {/* Bagian Kelola Website */}
+      <WebsiteEditor />
+    </div>
+  );
+}
