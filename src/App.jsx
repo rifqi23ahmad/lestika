@@ -1,52 +1,70 @@
-import { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { supabase } from './lib/supabaseClient'
-import Navbar from './components/Navbar'
-import LandingPage from './pages/LandingPage'
-import Auth from './pages/Auth'
-import Dashboard from './pages/Dashboard'
+// File: src/App.jsx
+import React, { useState } from 'react';
+import { AuthProvider } from './context/AuthContext';
+import Navbar from './components/layout/Navbar';
+import Footer from './components/layout/Footer'; // Pastikan import ini ada
 
-function App() {
-  const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
+// Import Halaman (Pastikan file-file ini sudah dibuat sesuai instruksi Bagian 2)
+import HomeView from './pages/HomeView';
+import LoginView from './pages/LoginView';
+import RegisterView from './pages/RegisterView';
+import InvoiceView from './pages/InvoiceView';
+import DashboardManager from './pages/dashboard/DashboardManager';
 
-  useEffect(() => {
-    // Cek session awal
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
-    })
+export default function App() {
+  const [currentPage, setCurrentPage] = useState('home');
+  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [invoiceData, setInvoiceData] = useState(null);
 
-    // Listen perubahan login/logout
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
+  const handleNavigate = (page) => {
+    setCurrentPage(page);
+    window.scrollTo(0, 0);
+  };
 
-    return () => subscription.unsubscribe()
-  }, [])
+  const handleRegisterClick = (pkg) => {
+    setSelectedPackage(pkg);
+    handleNavigate('register');
+  };
 
-  if (loading) return null; // Tunggu cek session selesai
+  const handleInvoiceCreated = (invoice) => {
+    setInvoiceData(invoice);
+    handleNavigate('invoice');
+  };
+
+  const renderPage = () => {
+    switch(currentPage) {
+      case 'home':
+        return <HomeView onNavigate={handleNavigate} onRegister={handleRegisterClick} />;
+      case 'login':
+        return <LoginView onNavigate={handleNavigate} />;
+      case 'register':
+        return (
+          <RegisterView 
+            selectedPackage={selectedPackage} 
+            onSuccess={handleInvoiceCreated}
+            onCancel={() => handleNavigate('home')} 
+          />
+        );
+      case 'invoice':
+        return <InvoiceView data={invoiceData} onHome={() => handleNavigate('home')} />;
+      case 'dashboard':
+        return <DashboardManager />;
+      default:
+        return <HomeView onNavigate={handleNavigate} onRegister={handleRegisterClick} />;
+    }
+  };
 
   return (
-    <Router>
-      <Navbar session={session} />
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        {/* Redirect ke Dashboard jika sudah login */}
-        <Route 
-            path="/login" 
-            element={!session ? <Auth /> : <Navigate to="/dashboard" />} 
-        />
-        {/* Redirect ke Login jika belum login */}
-        <Route 
-            path="/dashboard" 
-            element={session ? <Dashboard session={session} /> : <Navigate to="/login" />} 
-        />
-      </Routes>
-    </Router>
-  )
+    <AuthProvider>
+      <div className="min-h-screen bg-gray-50 font-sans text-gray-800 flex flex-col">
+        <Navbar onNavigate={handleNavigate} />
+        <main className="flex-grow">
+          {renderPage()}
+        </main>
+        <Footer />
+      </div>
+    </AuthProvider>
+  );
 }
 
-export default App
+// HAPUS function Footer() {...} yang ada di sini sebelumnya
