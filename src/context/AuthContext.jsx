@@ -11,23 +11,42 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let mounted = true;
 
-    // FUNGSI 1: Cek Sesi dengan Timeout (Anti-Macet)
     const initSession = async () => {
       try {
-        // Balapan: Mana lebih cepat? Data Sesi atau Timer 5 Detik?
-        const sessionPromise = authService.getSession();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 5000)
+        // --- 1. JALUR CEPAT (INSTANT CHECK) ---
+        // Cek apakah ada jejak token Supabase di LocalStorage browser.
+        // Format key Supabase: 'sb-<project-id>-auth-token'
+        const hasLocalToken = Object.keys(localStorage).some(key => 
+          key.startsWith('sb-') && key.endsWith('-auth-token')
         );
 
+        // Jika TIDAK ADA token di HP/Laptop, user pasti Guest/Belum Login.
+        // Langsung stop loading DETIK INI JUGA (0 ms). Jangan tunggu server!
+        if (!hasLocalToken) {
+          if (mounted) {
+            setUser(null);
+            setLoading(false);
+          }
+          return; // Stop di sini, tidak perlu request network
+        }
+
+        // --- 2. JALUR NORMAL (VALIDASI SERVER) ---
+        // Hanya jalan jika ditemukan token. Kita beri waktu maksimal 2 detik.
+        // Jika koneksi > 2 detik, kita anggap gagal agar user tidak bengong lama.
+        const sessionPromise = authService.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Slow connection')), 2000)
+        );
+
+        // Balapan: Mana lebih cepat? Data Server atau Timer 2 Detik?
         const currentUser = await Promise.race([sessionPromise, timeoutPromise]);
         
         if (mounted) setUser(currentUser);
+
       } catch (error) {
-        console.warn("Sesi bermasalah/timeout, reset ke mode tamu.", error);
+        // Jika error/timeout, force logout agar user bisa login ulang segera
+        console.warn("Fast load fallback:", error.message);
         if (mounted) setUser(null);
-        // Opsional: Hapus token lokal jika rusak parah
-        // localStorage.clear(); 
       } finally {
         if (mounted) setLoading(false);
       }
@@ -35,13 +54,14 @@ export const AuthProvider = ({ children }) => {
 
     initSession();
 
-    // FUNGSI 2: Listener Perubahan Auth (Login/Logout Realtime)
+    // --- LISTENER AUTH REALTIME ---
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
       if (event === 'SIGNED_IN' && session) {
+        // Ambil data detail user (profile)
         try {
-            // Ambil data profile dengan timeout 3 detik agar tidak macet
+            // Timeout pendek untuk profile fetch (3s)
             const fetchProfile = supabase
               .from('profiles')
               .select('*')
@@ -53,7 +73,7 @@ export const AuthProvider = ({ children }) => {
             );
 
             const { data: profile } = await Promise.race([fetchProfile, timeoutProfile])
-                                     .catch(() => ({ data: null })); // Fallback jika timeout
+                                     .catch(() => ({ data: null }));
 
             setUser({
                 id: session.user.id,
@@ -65,7 +85,8 @@ export const AuthProvider = ({ children }) => {
                 whatsapp: profile?.whatsapp
             });
         } catch (err) {
-            console.error("Gagal load profile:", err);
+            console.error("Profile load error:", err);
+            // Fallback user basic jika profile gagal load
             setUser({
                 id: session.user.id,
                 email: session.user.email,
@@ -75,6 +96,8 @@ export const AuthProvider = ({ children }) => {
         }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
+        // Opsional: Bersihkan cache jika logout
+        // localStorage.clear(); 
       }
     });
 
@@ -85,10 +108,10 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    // Tambahkan timeout juga saat Login
+    // Timeout login tetap agak panjang (5s) karena user sadar sedang menunggu
     const loginAction = authService.login(email, password);
     const timeoutAction = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Login timeout - periksa koneksi internet')), 10000)
+        setTimeout(() => reject(new Error('Login timeout - periksa sinyal Anda')), 5000)
     );
     await Promise.race([loginAction, timeoutAction]);
   };
@@ -105,15 +128,12 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{ user, login, register, logout, loading }}>
       {loading ? (
+        // Loading Screen Minimalis (Hanya muncul jika user punya token tapi sinyal lambat)
         <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
            <div className="text-center">
-             <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
+             <div className="spinner-border text-primary" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
                 <span className="visually-hidden">Loading...</span>
              </div>
-             <p className="mt-3 text-muted fw-medium">Memuat Aplikasi...</p>
-             <small className="text-secondary" style={{ fontSize: '0.8rem' }}>
-               Jika macet, coba refresh halaman.
-             </small>
            </div>
         </div>
       ) : (

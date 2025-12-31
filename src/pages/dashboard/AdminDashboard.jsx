@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Button, Table, Form, Badge, Alert, Nav } from 'react-bootstrap';
-import { Plus, Edit, Trash2, Save, Users, Package, FileText, CheckCircle, Eye, XCircle } from 'lucide-react';
+import { Row, Col, Card, Button, Table, Form, Badge, Alert } from 'react-bootstrap';
+import { Plus, Edit, Trash2, Users, Package, FileText, CheckCircle, Eye, XCircle } from 'lucide-react';
 import { packageService } from '../../services/packageService';
 import { supabase } from '../../lib/supabase';
 
@@ -96,9 +96,10 @@ export default function AdminDashboard() {
   };
 
   // ==========================================
-  // 3. LOGIC INVOICE / PEMBAYARAN
+  // 3. LOGIC INVOICE / PEMBAYARAN (DIPERBAIKI)
   // ==========================================
   const loadInvoices = async () => {
+    // Ambil data terbaru agar status selalu sinkron
     const { data } = await supabase
       .from('invoices')
       .select('*')
@@ -109,28 +110,41 @@ export default function AdminDashboard() {
   const handleConfirmPayment = async (id) => {
     if(!confirm("Konfirmasi pembayaran ini valid dan aktifkan paket?")) return;
     
-    const { error } = await supabase
+    // PERBAIKAN: Tambahkan .select() untuk memastikan data benar-benar berubah
+    const { data, error } = await supabase
       .from('invoices')
       .update({ status: 'paid' })
-      .eq('id', id);
+      .eq('id', id)
+      .select(); 
 
-    if(error) alert("Gagal konfirmasi: " + error.message);
-    else {
-        alert("Pembayaran diterima! Paket siswa aktif.");
-        loadInvoices();
+    if (error) {
+        alert("Error Database: " + error.message);
+    } else if (!data || data.length === 0) {
+        // INI PENTING: Jika error null tapi data kosong, berarti RLS memblokir
+        alert("GAGAL UPDATE: Server menolak perubahan. Cek 'Policies' di Supabase (RLS).");
+    } else {
+        alert("Sukses! Pembayaran diterima & Paket aktif.");
+        loadInvoices(); // Refresh tabel
     }
   };
 
   const handleRejectPayment = async (id) => {
       if(!confirm("Tolak pembayaran ini? Status akan kembali ke unpaid.")) return;
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('invoices')
-        .update({ status: 'unpaid', payment_proof_url: null }) // Reset bukti bayar juga
-        .eq('id', id);
+        .update({ status: 'unpaid', payment_proof_url: null })
+        .eq('id', id)
+        .select();
   
-      if(error) alert("Gagal menolak: " + error.message);
-      else loadInvoices();
+      if (error) {
+        alert("Error Database: " + error.message);
+      } else if (!data || data.length === 0) {
+        alert("GAGAL UPDATE: Server menolak perubahan. Cek 'Policies' di Supabase (RLS).");
+      } else {
+        alert("Pembayaran ditolak. Status kembali ke Unpaid.");
+        loadInvoices();
+      }
   };
 
   // ==========================================
@@ -164,7 +178,6 @@ export default function AdminDashboard() {
                 onClick={() => setActiveTab('invoice')}
               >
                 <div className="d-flex align-items-center"><FileText size={18} className="me-2"/> Konfirmasi Bayar</div>
-                {/* Badge notifikasi jumlah pending */}
                 {invoices.filter(i => i.status === 'waiting_confirmation').length > 0 && (
                     <Badge bg="danger" pill>
                         {invoices.filter(i => i.status === 'waiting_confirmation').length}
@@ -227,7 +240,7 @@ export default function AdminDashboard() {
           </Card>
         )}
 
-        {/* --- TAB 2: USER (GURU) --- */}
+        {/* --- TAB 2: USER --- */}
         {activeTab === 'guru' && (
           <Card className="shadow-sm border-0">
             <Card.Header className="bg-white py-3">
@@ -267,7 +280,7 @@ export default function AdminDashboard() {
           </Card>
         )}
 
-        {/* --- TAB 3: INVOICE / KONFIRMASI --- */}
+        {/* --- TAB 3: INVOICE --- */}
         {activeTab === 'invoice' && (
           <Card className="shadow-sm border-0">
             <Card.Header className="bg-white py-3">
