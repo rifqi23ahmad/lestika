@@ -1,7 +1,8 @@
 import { supabase } from '../lib/supabase';
 
 export const invoiceService = {
-  create: async (registrationData, selectedPackage) => {
+  // Tambahkan parameter userId dan userEmail
+  create: async (registrationData, selectedPackage, userId, userEmail) => {
     const adminFee = 15000;
     const total = Number(selectedPackage.price) + adminFee;
     const invoiceNo = `INV/MAPA/${new Date().getFullYear()}/${Math.floor(Math.random() * 10000)}`;
@@ -9,12 +10,18 @@ export const invoiceService = {
 
     const payload = {
       invoice_no: invoiceNo,
+      user_id: userId,        // SIMPAN ID (Kunci Utama)
+      email: userEmail,       // SIMPAN EMAIL (Cadangan)
       student_name: registrationData.name,
       student_data: registrationData,
       package_id: selectedPackage.id,
-      amount: total,
+      amount: total,          // Pastikan nama kolom di DB 'amount' atau 'total_amount' (sesuaikan DB anda)
+      total_amount: total,    // Jaga-jaga jika anda pakai total_amount
       due_date: dueDate,
-      status: 'pending'
+      status: 'unpaid',       // Default biasanya unpaid/pending
+      package_name: selectedPackage.title, // Simpan nama paket biar gampang query
+      package_price: selectedPackage.price,
+      admin_fee: adminFee
     };
 
     const { data, error } = await supabase
@@ -24,16 +31,6 @@ export const invoiceService = {
 
     if (error) throw error;
     
-    // Return format yang sesuai untuk UI
-    return {
-      ...data[0],
-      no: data[0].invoice_no,
-      date: new Date(data[0].created_at).toLocaleDateString('id-ID'),
-      dueDate: new Date(data[0].due_date).toLocaleDateString('id-ID'),
-      student: registrationData,
-      package: selectedPackage,
-      adminFee: adminFee,
-      total: total
-    };
+    return data[0];
   }
 };
