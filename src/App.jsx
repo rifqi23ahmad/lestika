@@ -1,10 +1,9 @@
-// File: src/App.jsx
 import React, { useState } from 'react';
 import { AuthProvider } from './context/AuthContext';
-import Navbar from './components/layout/Navbar';
-import Footer from './components/layout/Footer'; // Pastikan import ini ada
+import AppNavbar from './components/layout/Navbar'; // Pastikan nama import sesuai export di Navbar.jsx
+import Footer from './components/layout/Footer';
 
-// Import Halaman (Pastikan file-file ini sudah dibuat sesuai instruksi Bagian 2)
+// Import Halaman
 import HomeView from './pages/HomeView';
 import LoginView from './pages/LoginView';
 import RegisterView from './pages/RegisterView';
@@ -56,9 +55,10 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-gray-50 font-sans text-gray-800 flex flex-col">
-        <Navbar onNavigate={handleNavigate} />
-        <main className="flex-grow">
+      {/* Menggunakan class Bootstrap 'd-flex flex-column min-vh-100' agar footer selalu di bawah */}
+      <div className="d-flex flex-column min-vh-100 bg-light">
+        <AppNavbar onNavigate={handleNavigate} />
+        <main className="flex-grow-1">
           {renderPage()}
         </main>
         <Footer />
@@ -66,5 +66,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-
-// HAPUS function Footer() {...} yang ada di sini sebelumnya
