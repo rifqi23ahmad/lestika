@@ -9,44 +9,63 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Cek sesi saat aplikasi dimuat
+    let mounted = true;
+
+    // FUNGSI 1: Cek Sesi dengan Timeout (Anti-Macet)
     const initSession = async () => {
       try {
-        const currentUser = await authService.getSession();
-        setUser(currentUser);
+        // Balapan: Mana lebih cepat? Data Sesi atau Timer 5 Detik?
+        const sessionPromise = authService.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout')), 5000)
+        );
+
+        const currentUser = await Promise.race([sessionPromise, timeoutPromise]);
+        
+        if (mounted) setUser(currentUser);
       } catch (error) {
-        console.error("Session check failed", error);
+        console.warn("Sesi bermasalah/timeout, reset ke mode tamu.", error);
+        if (mounted) setUser(null);
+        // Opsional: Hapus token lokal jika rusak parah
+        // localStorage.clear(); 
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
+
     initSession();
 
-    // 2. Listener Auth
+    // FUNGSI 2: Listener Perubahan Auth (Login/Logout Realtime)
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
       if (event === 'SIGNED_IN' && session) {
-        // FETCH ULANG PROFILE DARI DB AGAR ROLE AKURAT
-        // Menggunakan try-catch agar jika fetch profile gagal, user tetap login dengan data basic
         try {
-            const { data: profile } = await supabase
+            // Ambil data profile dengan timeout 3 detik agar tidak macet
+            const fetchProfile = supabase
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
               .single();
+            
+            const timeoutProfile = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Profile timeout')), 3000)
+            );
+
+            const { data: profile } = await Promise.race([fetchProfile, timeoutProfile])
+                                     .catch(() => ({ data: null })); // Fallback jika timeout
 
             setUser({
                 id: session.user.id,
                 email: session.user.email,
                 role: profile?.role || 'siswa', 
                 name: profile?.full_name || session.user.email,
-                // Tambahkan data detail jika diperlukan komponen lain
                 jenjang: profile?.jenjang,
                 kelas: profile?.kelas,
                 whatsapp: profile?.whatsapp
             });
         } catch (err) {
-            console.error("Error fetching profile on auth change:", err);
-            // Fallback jika fetch profile gagal
+            console.error("Gagal load profile:", err);
             setUser({
                 id: session.user.id,
                 email: session.user.email,
@@ -54,33 +73,37 @@ export const AuthProvider = ({ children }) => {
                 name: session.user.email
             });
         }
-
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
       }
     });
 
     return () => {
+      mounted = false;
       listener.subscription.unsubscribe();
     };
   }, []);
 
   const login = async (email, password) => {
-    await authService.login(email, password);
+    // Tambahkan timeout juga saat Login
+    const loginAction = authService.login(email, password);
+    const timeoutAction = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Login timeout - periksa koneksi internet')), 10000)
+    );
+    await Promise.race([loginAction, timeoutAction]);
   };
 
   const register = async (email, password, name, detailData) => {
-    // Pastikan parameter sesuai dengan authService.register
     await authService.register(email, password, name, detailData);
   };
 
   const logout = async () => {
     await authService.logout();
+    setUser(null);
   };
 
   return (
     <AuthContext.Provider value={{ user, login, register, logout, loading }}>
-      {/* PERBAIKAN: Tampilkan Loading Spinner daripada null/kosong */}
       {loading ? (
         <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
            <div className="text-center">
@@ -88,6 +111,9 @@ export const AuthProvider = ({ children }) => {
                 <span className="visually-hidden">Loading...</span>
              </div>
              <p className="mt-3 text-muted fw-medium">Memuat Aplikasi...</p>
+             <small className="text-secondary" style={{ fontSize: '0.8rem' }}>
+               Jika macet, coba refresh halaman.
+             </small>
            </div>
         </div>
       ) : (

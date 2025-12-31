@@ -2,17 +2,15 @@ import React from 'react';
 import { Navbar, Container, Nav, Button, Dropdown } from 'react-bootstrap';
 import { BookOpen, LayoutDashboard, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-export default function AppNavbar({ onNavigate }) {
+export default function AppNavbar() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
-  const handleNav = (page) => {
-    onNavigate(page);
-  };
-
-  const handleLogout = () => {
-    logout();
-    handleNav('home');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
   };
 
   return (
@@ -21,29 +19,26 @@ export default function AppNavbar({ onNavigate }) {
         {/* LOGO */}
         <Navbar.Brand 
           href="#" 
-          onClick={(e) => { e.preventDefault(); handleNav('home'); }} 
+          onClick={(e) => { e.preventDefault(); navigate('/'); }} 
           className="d-flex align-items-center fw-bold text-primary fs-4"
         >
           <BookOpen className="me-2" size={32} /> 
           <span style={{ letterSpacing: '-1px' }}>MAPA</span>
         </Navbar.Brand>
         
-        {/* Tombol Hamburger (Mobile) */}
         <Navbar.Toggle aria-controls="basic-navbar-nav" className="border-0 shadow-none" />
         
-        {/* Menu Items */}
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="ms-auto align-items-center gap-2 gap-lg-4">
             <Nav.Link 
               href="#" 
-              onClick={(e) => { e.preventDefault(); handleNav('home'); }} 
+              onClick={(e) => { e.preventDefault(); navigate('/'); }} 
               className="fw-medium text-dark px-3"
             >
               Beranda
             </Nav.Link>
             
             {user ? (
-              // Tampilan Sudah Login
               <Dropdown align="end">
                 <Dropdown.Toggle variant="light" id="dropdown-basic" className="d-flex align-items-center border rounded-pill px-3 py-2 text-dark bg-light">
                    <User size={18} className="me-2 text-primary"/> 
@@ -51,7 +46,7 @@ export default function AppNavbar({ onNavigate }) {
                 </Dropdown.Toggle>
 
                 <Dropdown.Menu className="shadow-sm border-0 mt-2">
-                  <Dropdown.Item onClick={() => handleNav('dashboard')} className="d-flex align-items-center py-2">
+                  <Dropdown.Item onClick={() => navigate('/dashboard')} className="d-flex align-items-center py-2">
                     <LayoutDashboard size={16} className="me-2 text-muted"/> Dashboard
                   </Dropdown.Item>
                   <Dropdown.Divider />
@@ -61,14 +56,22 @@ export default function AppNavbar({ onNavigate }) {
                 </Dropdown.Menu>
               </Dropdown>
             ) : (
-              // Tampilan Belum Login
-              <Button 
-                variant="primary" 
-                onClick={() => handleNav('login')} 
-                className="px-4 py-2 fw-bold rounded-pill shadow-sm"
-              >
-                Login Portal
-              </Button>
+              <div className="d-flex gap-2 mt-3 mt-lg-0">
+                <Button 
+                    variant="outline-primary" 
+                    onClick={() => navigate('/signup')} 
+                    className="px-4 py-2 fw-bold rounded-pill"
+                >
+                    Daftar
+                </Button>
+                <Button 
+                    variant="primary" 
+                    onClick={() => navigate('/login')} 
+                    className="px-4 py-2 fw-bold rounded-pill shadow-sm"
+                >
+                    Masuk
+                </Button>
+              </div>
             )}
           </Nav>
         </Navbar.Collapse>
