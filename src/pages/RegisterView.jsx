@@ -1,16 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Card, Row, Col, Button, Form, Alert, Badge } from 'react-bootstrap';
-import { FileText, CreditCard, Upload, CheckCircle, ArrowLeft } from 'lucide-react';
+import { FileText, CreditCard, CheckCircle } from 'lucide-react'; // Hapus Upload/ArrowLeft jika tidak dipakai
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useLocation, useNavigate } from 'react-router-dom'; // PENTING
 
-export default function RegisterView({ selectedPackage, onSuccess, onCancel }) {
+export default function RegisterView() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // AMBIL DATA PAKET DARI STATE ROUTER
+  const selectedPackage = location.state?.pkg;
+
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
-  const [isUploaded, setIsUploaded] = useState(false);
 
-  // Hitung total (Harga + Biaya Admin)
+  // Redirect jika user refresh halaman ini (data paket hilang)
+  useEffect(() => {
+    if (!selectedPackage) {
+      navigate('/');
+    }
+  }, [selectedPackage, navigate]);
+
+  if (!selectedPackage || !user) return null; // Cegah render error
+
+  // Hitung total
   const adminFee = 5000;
   const totalAmount = Number(selectedPackage.price) + adminFee;
 
@@ -21,28 +36,25 @@ export default function RegisterView({ selectedPackage, onSuccess, onCancel }) {
     try {
       let proofUrl = null;
 
-      // 1. Upload Bukti jika ada file
+      // 1. Upload Bukti
       if (file) {
         const fileName = `pay_${user.id}_${Date.now()}`;
-        const { data, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
             .from('payments')
             .upload(fileName, file);
         
         if (uploadError) throw uploadError;
         
-        // Dapatkan Public URL
         const { data: publicUrlData } = supabase.storage.from('payments').getPublicUrl(fileName);
         proofUrl = publicUrlData.publicUrl;
       }
 
-      // 2. Simpan Invoice ke Database
-      // Status: jika ada bukti -> waiting_confirmation, jika tidak -> unpaid
+      // 2. Simpan Invoice
       const status = proofUrl ? 'waiting_confirmation' : 'unpaid';
-
       const invoicePayload = {
         invoice_no: `INV-${Date.now()}`,
         student_name: user.name,
-        student_jenjang: user.jenjang || '-', // Fallback jika data lama belum update
+        student_jenjang: user.jenjang || '-',
         student_kelas: user.kelas || '-',
         student_whatsapp: user.whatsapp || '-',
         package_id: selectedPackage.id,
@@ -52,40 +64,22 @@ export default function RegisterView({ selectedPackage, onSuccess, onCancel }) {
         total_amount: totalAmount,
         status: status,
         payment_proof_url: proofUrl,
-        // Kita juga perlu simpan user_id pemilik invoice agar relasi jelas (tambahkan kolom user_id di tabel invoices jika belum ada, atau gunakan student_name sebagai referensi sementara - IDEALNYA ADA user_id)
       };
-      
-      // Note: Di tutorial sebelumnya tabel invoices belum ada user_id. 
-      // Kita pakai insert biasa, tapi sebaiknya tambahkan kolom user_id di SQL.
-      // Untuk sekarang kita anggap insert berhasil.
       
       const { data, error } = await supabase.from('invoices').insert([invoicePayload]).select();
       if (error) throw error;
 
-      setIsUploaded(true);
-      setTimeout(() => {
-          onSuccess(data[0]); // Kembali ke Home/Dashboard
-      }, 2000);
+      // 3. SUKSES -> PINDAH KE HALAMAN INVOICE BAWA DATA
+      // Kita kirim data[0] (hasil insert) ke halaman invoice
+      alert("Invoice berhasil dibuat!");
+      navigate('/invoice', { state: { invoice: data[0] } });
 
     } catch (error) {
-      alert("Gagal memproses pembayaran: " + error.message);
+      alert("Gagal memproses: " + error.message);
     } finally {
       setLoading(false);
     }
   };
-
-  if (isUploaded) {
-    return (
-      <Container className="py-5 text-center">
-        <Card className="shadow mx-auto p-5" style={{maxWidth: '500px'}}>
-            <div className="mb-3 text-success"><CheckCircle size={64}/></div>
-            <h3>Pembayaran Berhasil Dikirim!</h3>
-            <p className="text-muted">Admin kami akan memverifikasi pembayaran Anda dalam waktu 1x24 jam.</p>
-            <p>Status: <Badge bg="warning" text="dark">Menunggu Konfirmasi</Badge></p>
-        </Card>
-      </Container>
-    );
-  }
 
   return (
     <Container className="py-5">
@@ -98,7 +92,7 @@ export default function RegisterView({ selectedPackage, onSuccess, onCancel }) {
         
         <Card.Body className="p-4">
           <Row>
-            {/* Bagian KIRI: Rincian Tagihan */}
+            {/* Bagian KIRI */}
             <Col md={7} className="border-end pe-md-5">
               <h5 className="fw-bold mb-4 text-secondary">Rincian Tagihan</h5>
               <div className="d-flex justify-content-between mb-2">
@@ -126,25 +120,16 @@ export default function RegisterView({ selectedPackage, onSuccess, onCancel }) {
               </Alert>
             </Col>
 
-            {/* Bagian KANAN: Metode Pembayaran */}
+            {/* Bagian KANAN */}
             <Col md={5} className="ps-md-4 mt-4 mt-md-0">
               <h5 className="fw-bold mb-3 text-secondary">Transfer Bank</h5>
               <Card className="bg-light border-0 mb-3">
                 <Card.Body>
                     <div className="d-flex align-items-center mb-2">
-                        <CreditCard className="me-2 text-primary"/> <strong>BCA (Bank Central Asia)</strong>
+                        <CreditCard className="me-2 text-primary"/> <strong>BCA</strong>
                     </div>
                     <div className="h4 fw-bold mb-0 text-dark">123 456 7890</div>
-                    <small>a.n. PT BIMBEL MAPA INDONESIA</small>
-                </Card.Body>
-              </Card>
-              <Card className="bg-light border-0 mb-4">
-                <Card.Body>
-                    <div className="d-flex align-items-center mb-2">
-                        <CreditCard className="me-2 text-primary"/> <strong>MANDIRI</strong>
-                    </div>
-                    <div className="h4 fw-bold mb-0 text-dark">000 111 222 333</div>
-                    <small>a.n. PT BIMBEL MAPA INDONESIA</small>
+                    <small>a.n. PT BIMBEL MAPA</small>
                 </Card.Body>
               </Card>
 
@@ -152,16 +137,13 @@ export default function RegisterView({ selectedPackage, onSuccess, onCancel }) {
                 <Form.Group className="mb-3">
                     <Form.Label className="fw-bold small">Upload Bukti Transfer</Form.Label>
                     <Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} />
-                    <Form.Text className="text-muted small">
-                        *Jika belum bayar sekarang, Anda bisa pilih paket dulu. Status akan menjadi <strong>Belum Dibayar</strong>.
-                    </Form.Text>
                 </Form.Group>
 
                 <div className="d-grid gap-2">
                     <Button type="submit" variant="success" size="lg" disabled={loading}>
                         {loading ? 'Memproses...' : (file ? 'Kirim Bukti Pembayaran' : 'Simpan & Bayar Nanti')}
                     </Button>
-                    <Button variant="outline-secondary" onClick={onCancel}>Batal</Button>
+                    <Button variant="outline-secondary" onClick={() => navigate('/')}>Batal</Button>
                 </div>
               </Form>
             </Col>
