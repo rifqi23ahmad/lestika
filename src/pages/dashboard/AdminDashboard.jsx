@@ -1,126 +1,158 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, X } from 'lucide-react';
+import { Row, Col, Card, Button, Table, Form, InputGroup, Badge, Alert } from 'react-bootstrap';
+import { Plus, Edit, Trash2, Save, Users, Package } from 'lucide-react';
 import { packageService } from '../../services/packageService';
+import { supabase } from '../../lib/supabase'; // Pastikan import ini ada
 
 export default function AdminDashboard() {
   const [packages, setPackages] = useState([]);
+  const [users, setUsers] = useState([]); // State untuk list user
+  const [activeTab, setActiveTab] = useState('paket'); // paket | guru
+  
+  // State manajemen Paket (sama seperti sebelumnya)
   const [isEditing, setIsEditing] = useState(false);
   const [currentPkg, setCurrentPkg] = useState({ title: '', price: '', features: '' });
 
   useEffect(() => {
     loadPackages();
-  }, []);
+    if (activeTab === 'guru') loadUsers();
+  }, [activeTab]);
 
+  // --- LOGIC PAKET (SAMA SEPERTI SEBELUMNYA) ---
   const loadPackages = async () => {
     try {
       const data = await packageService.getAll();
       setPackages(data);
     } catch (err) { console.error(err); }
   };
-
-  const handleSave = async (e) => {
+  const handleSavePkg = async (e) => {
     e.preventDefault();
-    const formattedFeatures = typeof currentPkg.features === 'string' 
-      ? currentPkg.features.split(',').map(f => f.trim()) 
-      : currentPkg.features;
-    
-    const payload = { 
-      ...currentPkg, 
-      features: formattedFeatures,
-      // Pastikan price adalah number
-      price: Number(currentPkg.price),
-      price_display: currentPkg.price_display || `Rp ${Number(currentPkg.price).toLocaleString('id-ID')}`
-    };
-
+    const formattedFeatures = typeof currentPkg.features === 'string' ? currentPkg.features.split(',').map(f => f.trim()) : currentPkg.features;
+    const payload = { ...currentPkg, features: formattedFeatures, price: Number(currentPkg.price), price_display: currentPkg.price_display || `Rp ${Number(currentPkg.price).toLocaleString('id-ID')}` };
     try {
-      if (currentPkg.id) {
-        await packageService.update(currentPkg.id, payload);
-      } else {
-        await packageService.create(payload);
-      }
-      setIsEditing(false);
-      loadPackages(); // Reload data
-    } catch (err) {
-      alert("Gagal menyimpan data");
-    }
+      if (currentPkg.id) await packageService.update(currentPkg.id, payload);
+      else await packageService.create(payload);
+      setIsEditing(false); loadPackages();
+    } catch (err) { alert("Gagal menyimpan data"); }
+  };
+  const handleDeletePkg = async (id) => { if(confirm('Hapus paket?')) { await packageService.delete(id); loadPackages(); }};
+
+  // --- LOGIC MANAJEMEN USER (GURU) ---
+  const loadUsers = async () => {
+    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    setUsers(data || []);
   };
 
-  const handleDelete = async (id) => {
-    if(confirm('Yakin ingin menghapus?')) {
-      await packageService.delete(id);
-      loadPackages();
-    }
+  const handlePromoteToTeacher = async (userId) => {
+    if(!confirm("Ubah user ini menjadi Guru?")) return;
+    const { error } = await supabase.from('profiles').update({ role: 'guru' }).eq('id', userId);
+    if(error) alert("Gagal update role");
+    else loadUsers();
   };
 
-  const openEdit = (pkg) => {
-    setCurrentPkg({ 
-      ...pkg, 
-      features: Array.isArray(pkg.features) ? pkg.features.join(', ') : pkg.features,
-      price: pkg.price // Untuk input form, ambil raw number
-    });
-    setIsEditing(true);
+  const handleDemoteToStudent = async (userId) => {
+    if(!confirm("Kembalikan user ini menjadi Siswa?")) return;
+    const { error } = await supabase.from('profiles').update({ role: 'siswa' }).eq('id', userId);
+    if(error) alert("Gagal update role");
+    else loadUsers();
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      {/* Sidebar Stats */}
-      <div className="lg:col-span-1 space-y-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="font-bold text-lg mb-4 text-gray-800">Statistik</h3>
-          <div className="p-3 bg-blue-50 rounded-lg flex justify-between">
-             <span className="text-gray-600">Total Paket</span>
-             <span className="font-bold text-blue-700">{packages.length}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main CMS */}
-      <div className="lg:col-span-2">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b flex justify-between items-center bg-gray-50">
-            <h2 className="text-lg font-bold">Manajemen Paket (CMS)</h2>
-            <button onClick={() => { setCurrentPkg({title:'', price:'', features:''}); setIsEditing(true); }} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center text-sm hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-1" /> Tambah
-            </button>
-          </div>
-
-          {isEditing && (
-            <div className="p-6 bg-blue-50 border-b">
-              <form onSubmit={handleSave} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <input required value={currentPkg.title} onChange={e => setCurrentPkg({...currentPkg, title: e.target.value})} className="p-2 border rounded w-full" placeholder="Nama Paket" />
-                  <input required type="number" value={currentPkg.price} onChange={e => setCurrentPkg({...currentPkg, price: e.target.value})} className="p-2 border rounded w-full" placeholder="Harga (Angka)" />
-                </div>
-                <textarea required value={currentPkg.features} onChange={e => setCurrentPkg({...currentPkg, features: e.target.value})} className="w-full p-2 border rounded" placeholder="Fitur (pisahkan koma)" />
-                <div className="flex justify-end gap-2">
-                  <button type="button" onClick={() => setIsEditing(false)} className="px-3 py-1 bg-gray-200 rounded">Batal</button>
-                  <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded flex items-center"><Save className="w-4 h-4 mr-1"/> Simpan</button>
-                </div>
-              </form>
+    <Row className="g-4">
+      {/* Sidebar / Tabs */}
+      <Col lg={3}>
+        <Card className="shadow-sm border-0 h-100">
+          <Card.Body>
+            <h5 className="fw-bold mb-4">Menu Admin</h5>
+            <div className="d-grid gap-2">
+              <Button variant={activeTab === 'paket' ? 'primary' : 'light'} className="text-start" onClick={() => setActiveTab('paket')}>
+                <Package size={18} className="me-2"/> Manajemen Paket
+              </Button>
+              <Button variant={activeTab === 'guru' ? 'primary' : 'light'} className="text-start" onClick={() => setActiveTab('guru')}>
+                <Users size={18} className="me-2"/> Manajemen User & Guru
+              </Button>
             </div>
-          )}
+          </Card.Body>
+        </Card>
+      </Col>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 uppercase text-gray-500">
-                <tr><th className="px-6 py-3">Paket</th><th className="px-6 py-3">Harga</th><th className="px-6 py-3 text-right">Aksi</th></tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
+      {/* Main Content */}
+      <Col lg={9}>
+        {activeTab === 'paket' ? (
+          // --- TAMPILAN PAKET (SAMA SEPERTI SEBELUMNYA) ---
+          <Card className="shadow-sm border-0">
+            <Card.Header className="bg-white py-3 d-flex justify-content-between align-items-center">
+              <h5 className="mb-0 fw-bold">Daftar Paket Belajar</h5>
+              <Button size="sm" onClick={() => { setCurrentPkg({title:'', price:'', features:''}); setIsEditing(true); }}><Plus size={16} /> Tambah</Button>
+            </Card.Header>
+            {isEditing && (
+              <Card.Body className="bg-light border-bottom">
+                <Form onSubmit={handleSavePkg}>
+                   {/* Form input fields sama seperti sebelumnya */}
+                   <div className="d-flex gap-2 mb-2">
+                      <Form.Control placeholder="Nama Paket" value={currentPkg.title} onChange={e => setCurrentPkg({...currentPkg, title: e.target.value})} required />
+                      <Form.Control placeholder="Harga" type="number" value={currentPkg.price} onChange={e => setCurrentPkg({...currentPkg, price: e.target.value})} required />
+                   </div>
+                   <Form.Control as="textarea" placeholder="Fitur (koma)" value={currentPkg.features} onChange={e => setCurrentPkg({...currentPkg, features: e.target.value})} className="mb-2" />
+                   <Button type="submit" size="sm">Simpan</Button>
+                </Form>
+              </Card.Body>
+            )}
+            <Table responsive hover className="mb-0">
+              <thead><tr><th>Paket</th><th>Harga</th><th className="text-end">Aksi</th></tr></thead>
+              <tbody>
                 {packages.map(pkg => (
-                  <tr key={pkg.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium">{pkg.title}</td>
-                    <td className="px-6 py-4 text-blue-600">{pkg.price_display || pkg.price}</td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <button onClick={() => openEdit(pkg)} className="text-yellow-600 bg-yellow-50 p-1 rounded"><Edit className="w-4 h-4" /></button>
-                      <button onClick={() => handleDelete(pkg.id)} className="text-red-600 bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4" /></button>
+                  <tr key={pkg.id}>
+                    <td>{pkg.title}</td>
+                    <td>{pkg.price_display}</td>
+                    <td className="text-end">
+                      <Button variant="link" className="text-danger p-0" onClick={() => handleDeletePkg(pkg.id)}><Trash2 size={16}/></Button>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
+            </Table>
+          </Card>
+        ) : (
+          // --- TAMPILAN MANAJEMEN GURU ---
+          <Card className="shadow-sm border-0">
+            <Card.Header className="bg-white py-3">
+              <h5 className="mb-0 fw-bold">Manajemen User (Guru & Siswa)</h5>
+            </Card.Header>
+            <Card.Body>
+              <Alert variant="info" className="small">
+                <strong>Cara Menambah Guru:</strong> Minta calon guru mendaftar sebagai "Siswa" di halaman depan, lalu cari namanya di sini dan klik tombol <strong>"Jadikan Guru"</strong>.
+              </Alert>
+              <Table responsive hover className="align-middle">
+                <thead className="bg-light">
+                  <tr><th>Nama</th><th>Email</th><th>Role Saat Ini</th><th className="text-end">Aksi</th></tr>
+                </thead>
+                <tbody>
+                  {users.map(u => (
+                    <tr key={u.id}>
+                      <td className="fw-medium">{u.full_name || '-'}</td>
+                      <td>{u.email}</td>
+                      <td>
+                        <Badge bg={u.role === 'admin' ? 'danger' : u.role === 'guru' ? 'success' : 'secondary'}>
+                          {u.role.toUpperCase()}
+                        </Badge>
+                      </td>
+                      <td className="text-end">
+                        {u.role === 'siswa' && (
+                          <Button size="sm" variant="outline-success" onClick={() => handlePromoteToTeacher(u.id)}>Jadikan Guru</Button>
+                        )}
+                        {u.role === 'guru' && (
+                          <Button size="sm" variant="outline-warning" onClick={() => handleDemoteToStudent(u.id)}>Jadikan Siswa</Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Card.Body>
+          </Card>
+        )}
+      </Col>
+    </Row>
   );
 }

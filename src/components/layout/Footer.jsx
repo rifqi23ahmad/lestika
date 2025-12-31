@@ -1,12 +1,13 @@
-// File: src/components/layout/Footer.jsx
 import React from 'react';
+import { Container } from 'react-bootstrap';
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-white py-10 mt-auto">
-      <div className="max-w-7xl mx-auto px-4 text-center">
-        <p className="text-gray-400 text-sm">&copy; 2024 Bimbel MAPA. All rights reserved.</p>
-      </div>
+    <footer className="bg-dark text-white py-4 mt-auto">
+      <Container className="text-center">
+        <p className="mb-0 text-white-50 small">&copy; {new Date().getFullYear()} Bimbel MAPA. All rights reserved.</p>
+        <p className="mb-0 small text-white-50">Mencerdaskan Kehidupan Bangsa</p>
+      </Container>
     </footer>
   );
 }

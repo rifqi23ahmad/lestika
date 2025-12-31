@@ -1,62 +1,156 @@
-import React from 'react';
-import { Calendar, User } from 'lucide-react';
-
-// Data dummy untuk tampilan
-const mockSchedules = [
-  { id: 1, day: "Senin", time: "14:00 - 16:00", subject: "Matematika", teacher: "Pak Budi", room: "Ruang A" },
-  { id: 2, day: "Rabu", time: "14:00 - 16:00", subject: "Bahasa Inggris", teacher: "Ms. Sarah", room: "Ruang B" },
-  { id: 3, day: "Jumat", time: "15:30 - 17:30", subject: "Fisika", teacher: "Bu Ratna", room: "Lab 1" },
-];
+import React, { useState, useEffect } from 'react';
+import { Row, Col, Card, Button, Form, Table, Badge, ProgressBar } from 'react-bootstrap';
+import { Calendar, Upload, FileText, UserCheck, Save } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TeacherDashboard() {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Jadwal Mengajar */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="font-bold text-lg text-gray-800">Jadwal Mengajar Hari Ini</h3>
-          <Calendar className="text-blue-500 w-5 h-5" />
-        </div>
-        <div className="space-y-4">
-          {mockSchedules.slice(0, 2).map(sch => (
-             <div key={sch.id} className="flex border-l-4 border-blue-500 bg-blue-50 p-4 rounded-r-lg">
-               <div className="mr-4 text-center">
-                 <p className="text-xs font-bold text-blue-800 uppercase">{sch.day}</p>
-                 <p className="font-bold text-gray-900">{sch.time.split(' - ')[0]}</p>
-               </div>
-               <div>
-                 <p className="font-bold text-gray-900">{sch.subject}</p>
-                 <p className="text-sm text-gray-600">{sch.room} &bull; Kelas 12 IPA</p>
-               </div>
-             </div>
-          ))}
-        </div>
-      </div>
+  const { user } = useAuth();
+  const [uploading, setUploading] = useState(false);
+  const [file, setFile] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState('');
+  const [gradeData, setGradeData] = useState({ subject: '', score: '', feedback: '' });
 
-      {/* Input Nilai */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="font-bold text-lg text-gray-800">Input Nilai / Catatan</h3>
-          <User className="text-green-500 w-5 h-5" />
-        </div>
-        <div className="space-y-4">
-          <div className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer flex justify-between items-center">
-            <div>
-              <p className="font-medium">Andi Saputra</p>
-              <p className="text-xs text-gray-500">Matematika - Quiz 3</p>
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  // 1. Fetch Daftar Siswa untuk Input Nilai
+  const fetchStudents = async () => {
+    const { data } = await supabase.from('profiles').select('*').eq('role', 'siswa');
+    setStudents(data || []);
+  };
+
+  // 2. Fungsi Upload PDF
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    if (!file) return alert("Pilih file PDF dulu");
+
+    setUploading(true);
+    try {
+      const fileName = `${Date.now()}_${file.name.replace(/\s/g, '_')}`;
+      const { data, error } = await supabase.storage.from('materials').upload(fileName, file);
+      
+      if (error) throw error;
+
+      // Simpan referensi ke tabel materials (opsional, tapi disarankan)
+      const publicUrl = supabase.storage.from('materials').getPublicUrl(fileName).data.publicUrl;
+      const { error: dbError } = await supabase.from('materials').insert({
+        title: file.name,
+        file_url: publicUrl,
+        jenjang: 'Umum' // Bisa dibuat dinamis
+      });
+
+      if(dbError) console.warn("Gagal simpan ke DB, tapi file terupload");
+      
+      alert("Materi berhasil diupload!");
+      setFile(null);
+    } catch (err) {
+      console.error(err);
+      alert("Gagal upload: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 3. Fungsi Simpan Nilai
+  const handleSaveGrade = async (e) => {
+    e.preventDefault();
+    if(!selectedStudent) return alert("Pilih siswa");
+
+    try {
+      const { error } = await supabase.from('grades').insert({
+        student_id: selectedStudent,
+        teacher_id: user.id,
+        subject: gradeData.subject,
+        score: gradeData.score,
+        feedback: gradeData.feedback
+      });
+
+      if(error) throw error;
+      alert("Nilai berhasil disimpan!");
+      setGradeData({ subject: '', score: '', feedback: '' });
+    } catch (err) {
+      alert("Gagal simpan nilai");
+    }
+  };
+
+  return (
+    <Row className="g-4">
+      {/* --- KARTU UPLOAD MATERI --- */}
+      <Col md={6}>
+        <Card className="shadow-sm border-0 h-100">
+          <Card.Header className="bg-white fw-bold py-3 d-flex align-items-center">
+            <Upload size={20} className="me-2 text-primary" /> Upload Materi Soal (PDF)
+          </Card.Header>
+          <Card.Body>
+            <Form onSubmit={handleUpload}>
+              <Form.Group className="mb-3">
+                <Form.Label>Pilih File PDF</Form.Label>
+                <Form.Control 
+                  type="file" 
+                  accept="application/pdf"
+                  onChange={(e) => setFile(e.target.files[0])}
+                />
+              </Form.Group>
+              <Button type="submit" variant="primary" disabled={uploading || !file} className="w-100">
+                {uploading ? 'Mengupload...' : 'Upload Materi'}
+              </Button>
+            </Form>
+            
+            <div className="mt-4 pt-3 border-top">
+              <small className="text-muted">Materi yang diupload akan muncul di Dashboard Siswa.</small>
             </div>
-            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Belum Dinilai</span>
-          </div>
-           <div className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer flex justify-between items-center">
-            <div>
-              <p className="font-medium">Siti Aminah</p>
-              <p className="text-xs text-gray-500">Fisika - PR Bab 2</p>
-            </div>
-            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Selesai: 95</span>
-          </div>
-        </div>
-        <button className="w-full mt-4 text-blue-600 text-sm font-medium hover:underline">Lihat Semua Siswa</button>
-      </div>
-    </div>
+          </Card.Body>
+        </Card>
+      </Col>
+
+      {/* --- KARTU INPUT NILAI --- */}
+      <Col md={6}>
+        <Card className="shadow-sm border-0 h-100">
+          <Card.Header className="bg-white fw-bold py-3 d-flex align-items-center">
+            <UserCheck size={20} className="me-2 text-success" /> Input Nilai & Feedback
+          </Card.Header>
+          <Card.Body>
+            <Form onSubmit={handleSaveGrade}>
+              <Form.Group className="mb-3">
+                <Form.Label>Pilih Siswa</Form.Label>
+                <Form.Select value={selectedStudent} onChange={e => setSelectedStudent(e.target.value)} required>
+                  <option value="">-- Pilih Siswa --</option>
+                  {students.map(s => (
+                    <option key={s.id} value={s.id}>{s.full_name} ({s.email})</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+
+              <Row>
+                <Col xs={8}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Mata Pelajaran</Form.Label>
+                    <Form.Control placeholder="Misal: Matematika Bab 1" value={gradeData.subject} onChange={e => setGradeData({...gradeData, subject: e.target.value})} required />
+                  </Form.Group>
+                </Col>
+                <Col xs={4}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Nilai</Form.Label>
+                    <Form.Control type="number" placeholder="0-100" value={gradeData.score} onChange={e => setGradeData({...gradeData, score: e.target.value})} required />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Feedback / Catatan</Form.Label>
+                <Form.Control as="textarea" rows={3} placeholder="Berikan semangat atau catatan perbaikan..." value={gradeData.feedback} onChange={e => setGradeData({...gradeData, feedback: e.target.value})} />
+              </Form.Group>
+
+              <Button type="submit" variant="success" className="w-100 d-flex align-items-center justify-content-center">
+                <Save size={18} className="me-2"/> Simpan Nilai
+              </Button>
+            </Form>
+          </Card.Body>
+        </Card>
+      </Col>
+    </Row>
   );
 }

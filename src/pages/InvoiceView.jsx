@@ -1,71 +1,76 @@
 import React from 'react';
+import { Container, Card, Table, Button, Badge, Row, Col } from 'react-bootstrap';
 import { BookOpen, Printer, ArrowLeft } from 'lucide-react';
 
 export default function InvoiceView({ data, onHome }) {
   if (!data) return null;
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4">
-      <div className="max-w-3xl mx-auto bg-white shadow-2xl rounded-xl overflow-hidden print:shadow-none">
-        {/* Header */}
-        <div className="bg-gray-800 text-white p-8 flex justify-between items-start">
+    <Container className="py-5">
+      <Card className="shadow-lg border-0 overflow-hidden mx-auto" style={{ maxWidth: '800px' }}>
+        {/* Print only styling handled by Bootstrap's d-print utilities if needed, but simple window.print works well */}
+        <div className="bg-dark text-white p-5 d-flex justify-content-between align-items-start">
           <div>
-            <div className="flex items-center mb-2">
-               <BookOpen className="h-8 w-8 text-blue-400 mr-2" />
-               <span className="font-bold text-2xl tracking-tighter">MAPA</span>
+            <div className="d-flex align-items-center mb-3">
+               <BookOpen className="text-primary me-2" size={32} />
+               <span className="h3 fw-bold mb-0">MAPA</span>
             </div>
-            <p className="text-gray-400 text-sm">Jl. Pendidikan No. 123, Jakarta</p>
+            <p className="text-white-50 mb-0 small">Jl. Pendidikan No. 123, Jakarta</p>
+            <p className="text-white-50 small">admin@bimbelmapa.com</p>
           </div>
-          <div className="text-right">
-            <h1 className="text-3xl font-bold uppercase tracking-wide text-blue-400">Invoice</h1>
-            <p className="text-lg font-medium mt-1">{data.no}</p>
-            <div className="mt-4">
-              <p className="text-sm text-gray-400">Jatuh Tempo: <span className="text-white font-medium">{data.dueDate}</span></p>
-            </div>
+          <div className="text-end">
+            <h2 className="text-uppercase fw-bold text-primary mb-2">Invoice</h2>
+            <h5 className="mb-3">#{data.no}</h5>
+            <small className="text-white-50">Jatuh Tempo:</small>
+            <div className="fw-bold">{data.dueDate}</div>
           </div>
         </div>
 
-        {/* Bill To */}
-        <div className="p-8 border-b flex justify-between items-start">
-          <div>
-            <h3 className="text-gray-500 text-sm font-bold uppercase tracking-wider mb-2">Tagihan Kepada</h3>
-            <p className="text-xl font-bold text-gray-900">{data.student.name}</p>
-            <p className="text-gray-600">Kelas: {data.student.kelas} ({data.student.jenjang})</p>
+        <Card.Body className="p-5">
+          <div className="d-flex justify-content-between align-items-end mb-5 border-bottom pb-4">
+            <div>
+              <small className="text-muted text-uppercase fw-bold d-block mb-2">Tagihan Kepada:</small>
+              <h4 className="fw-bold text-dark mb-1">{data.student.name}</h4>
+              <p className="text-muted mb-0">Kelas {data.student.kelas} ({data.student.jenjang})</p>
+            </div>
+            <Badge bg="warning" text="dark" className="px-3 py-2 text-uppercase">Menunggu Pembayaran</Badge>
           </div>
-          <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full font-bold uppercase">Menunggu Pembayaran</span>
-        </div>
 
-        {/* Table */}
-        <div className="p-8">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-gray-200"><th className="py-3 text-gray-500 uppercase">Deskripsi</th><th className="py-3 text-right text-gray-500 uppercase">Jumlah</th></tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
+          <Table borderless className="mb-4">
+            <thead className="border-bottom text-muted text-uppercase small">
               <tr>
-                <td className="py-4"><p className="font-bold">{data.package.title}</p></td>
-                <td className="py-4 text-right">Rp {Number(data.package.price).toLocaleString('id-ID')}</td>
+                <th className="py-3">Deskripsi</th>
+                <th className="text-end py-3">Jumlah</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="py-3 fw-bold">{data.package.title}</td>
+                <td className="text-end py-3">Rp {Number(data.package.price).toLocaleString('id-ID')}</td>
               </tr>
               <tr>
-                <td className="py-4"><p className="font-bold">Biaya Administrasi</p></td>
-                <td className="py-4 text-right">Rp {data.adminFee.toLocaleString('id-ID')}</td>
+                <td className="py-3 fw-bold">Biaya Administrasi</td>
+                <td className="text-end py-3">Rp {data.adminFee.toLocaleString('id-ID')}</td>
               </tr>
             </tbody>
-            <tfoot>
+            <tfoot className="border-top">
               <tr>
-                <td className="pt-6 text-right font-bold text-gray-600">Total</td>
-                <td className="pt-6 text-right font-bold text-3xl text-blue-600">Rp {data.total.toLocaleString('id-ID')}</td>
+                <td className="pt-4 text-end fw-bold text-muted">Total Tagihan</td>
+                <td className="pt-4 text-end h3 fw-bold text-primary">Rp {data.total.toLocaleString('id-ID')}</td>
               </tr>
             </tfoot>
-          </table>
-        </div>
+          </Table>
 
-        {/* Footer Actions */}
-        <div className="p-8 border-t flex justify-center space-x-4 print:hidden">
-          <button onClick={() => window.print()} className="flex items-center px-6 py-3 border rounded-lg font-bold hover:bg-gray-50"><Printer className="w-5 h-5 mr-2" /> Cetak</button>
-          <button onClick={onHome} className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700"><ArrowLeft className="w-5 h-5 mr-2" /> Beranda</button>
-        </div>
-      </div>
-    </div>
+          <div className="d-print-none d-flex justify-content-center gap-3 mt-5">
+            <Button variant="outline-secondary" onClick={() => window.print()} className="d-flex align-items-center px-4">
+              <Printer size={18} className="me-2"/> Cetak Invoice
+            </Button>
+            <Button variant="primary" onClick={onHome} className="d-flex align-items-center px-4">
+              <ArrowLeft size={18} className="me-2"/> Kembali ke Beranda
+            </Button>
+          </div>
+        </Card.Body>
+      </Card>
+    </Container>
   );
 }

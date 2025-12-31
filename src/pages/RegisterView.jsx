@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { FileText } from 'lucide-react';
+import { Container, Card, Form, Row, Col, Button, Alert } from 'react-bootstrap';
+import { FileText, ArrowLeft } from 'lucide-react';
 import { invoiceService } from '../services/invoiceService';
 
 export default function RegisterView({ selectedPackage, onSuccess, onCancel }) {
@@ -12,7 +13,6 @@ export default function RegisterView({ selectedPackage, onSuccess, onCancel }) {
     e.preventDefault();
     setLoading(true);
     try {
-      // Logic dipindahkan ke Service
       const newInvoice = await invoiceService.create(formData, selectedPackage);
       onSuccess(newInvoice);
     } catch (error) {
@@ -26,54 +26,72 @@ export default function RegisterView({ selectedPackage, onSuccess, onCancel }) {
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
-        <div className="bg-blue-600 py-6 px-8 text-white flex justify-between items-center">
+    <Container className="py-5">
+      <Card className="shadow-lg border-0 overflow-hidden mx-auto" style={{ maxWidth: '700px' }}>
+        <div className="bg-primary text-white p-4 d-flex justify-content-between align-items-center">
           <div>
-            <h2 className="text-2xl font-bold">Formulir Pendaftaran</h2>
-            <p className="text-blue-100 text-sm mt-1">Lengkapi data untuk bergabung</p>
+            <h3 className="fw-bold mb-1">Formulir Pendaftaran</h3>
+            <p className="mb-0 text-white-50">Silakan lengkapi data siswa</p>
           </div>
-          <FileText className="w-10 h-10 text-white opacity-80" />
+          <FileText size={40} className="opacity-50" />
         </div>
         
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex justify-between items-center">
-             <div>
-               <p className="text-xs text-gray-500 uppercase font-bold tracking-wide">Paket Dipilih</p>
-               <h3 className="font-bold text-gray-900 text-lg">{selectedPackage?.title}</h3>
-             </div>
-             <p className="font-bold text-blue-600">{selectedPackage?.price_display || selectedPackage?.price}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap Siswa</label>
-              <input type="text" name="name" onChange={handleChange} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required />
-            </div>
+        <Card.Body className="p-4 p-md-5">
+          {/* Info Paket */}
+          <Alert variant="info" className="d-flex justify-content-between align-items-center">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Jenjang</label>
-              <select name="jenjang" onChange={handleChange} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="SD">SD</option><option value="SMP">SMP</option><option value="SMA">SMA</option>
-              </select>
+              <small className="text-muted text-uppercase fw-bold">Paket Dipilih</small>
+              <h5 className="fw-bold mb-0 text-dark">{selectedPackage?.title}</h5>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Kelas</label>
-              <input type="text" name="kelas" onChange={handleChange} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">WhatsApp</label>
-              <input type="number" name="whatsapp" onChange={handleChange} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="0812..." required />
-            </div>
-          </div>
+            <h5 className="fw-bold text-primary mb-0">{selectedPackage?.price_display || selectedPackage?.price}</h5>
+          </Alert>
 
-          <div className="border-t pt-6 flex justify-between items-center">
-            <button type="button" onClick={onCancel} className="text-gray-600 font-medium hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100">Batal</button>
-            <button type="submit" disabled={loading} className="bg-blue-600 text-white font-bold px-8 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition transform hover:scale-105 disabled:opacity-50">
-              {loading ? 'Memproses...' : 'Proses Pendaftaran'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <Form onSubmit={handleSubmit}>
+            <Row className="g-3">
+              <Col md={12}>
+                <Form.Group>
+                  <Form.Label>Nama Lengkap Siswa</Form.Label>
+                  <Form.Control type="text" name="name" onChange={handleChange} required placeholder="Masukkan nama lengkap" className="py-2" />
+                </Form.Group>
+              </Col>
+              
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Jenjang</Form.Label>
+                  <Form.Select name="jenjang" onChange={handleChange} className="py-2">
+                    <option value="SD">SD</option>
+                    <option value="SMP">SMP</option>
+                    <option value="SMA">SMA</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Kelas</Form.Label>
+                  <Form.Control type="text" name="kelas" onChange={handleChange} required placeholder="Contoh: 12 IPA" className="py-2" />
+                </Form.Group>
+              </Col>
+
+              <Col md={12}>
+                <Form.Group>
+                  <Form.Label>Nomor WhatsApp</Form.Label>
+                  <Form.Control type="number" name="whatsapp" onChange={handleChange} required placeholder="0812xxxx" className="py-2" />
+                </Form.Group>
+              </Col>
+
+              <Col md={12} className="mt-4 d-flex justify-content-between">
+                <Button variant="light" onClick={onCancel} className="d-flex align-items-center">
+                  <ArrowLeft size={16} className="me-2"/> Batal
+                </Button>
+                <Button type="submit" variant="primary" disabled={loading} className="fw-bold px-4">
+                  {loading ? 'Memproses...' : 'Daftar Sekarang'}
+                </Button>
+              </Col>
+            </Row>
+          </Form>
+        </Card.Body>
+      </Card>
+    </Container>
   );
 }

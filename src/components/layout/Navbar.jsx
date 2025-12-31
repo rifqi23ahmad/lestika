@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
-import { BookOpen, Menu, X, LayoutDashboard, LogOut } from 'lucide-react';
+import React from 'react';
+import { Navbar, Container, Nav, Button, Dropdown } from 'react-bootstrap';
+import { BookOpen, LayoutDashboard, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function Navbar({ onNavigate }) {
+export default function AppNavbar({ onNavigate }) {
   const { user, logout } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleNav = (page) => {
     onNavigate(page);
-    setIsMobileMenuOpen(false);
   };
 
   const handleLogout = () => {
@@ -17,60 +16,63 @@ export default function Navbar({ onNavigate }) {
   };
 
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center cursor-pointer" onClick={() => handleNav('home')}>
-            <BookOpen className="h-8 w-8 text-blue-600 mr-2" />
-            <span className="font-bold text-2xl text-blue-900 tracking-tighter">MAPA</span>
-          </div>
-          
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-4">
-            <button onClick={() => handleNav('home')} className="hover:text-blue-600 px-3 py-2 font-medium">Beranda</button>
+    <Navbar bg="white" expand="lg" className="shadow-sm sticky-top py-3">
+      <Container>
+        {/* LOGO */}
+        <Navbar.Brand 
+          href="#" 
+          onClick={(e) => { e.preventDefault(); handleNav('home'); }} 
+          className="d-flex align-items-center fw-bold text-primary fs-4"
+        >
+          <BookOpen className="me-2" size={32} /> 
+          <span style={{ letterSpacing: '-1px' }}>MAPA</span>
+        </Navbar.Brand>
+        
+        {/* Tombol Hamburger (Mobile) */}
+        <Navbar.Toggle aria-controls="basic-navbar-nav" className="border-0 shadow-none" />
+        
+        {/* Menu Items */}
+        <Navbar.Collapse id="basic-navbar-nav">
+          <Nav className="ms-auto align-items-center gap-2 gap-lg-4">
+            <Nav.Link 
+              href="#" 
+              onClick={(e) => { e.preventDefault(); handleNav('home'); }} 
+              className="fw-medium text-dark px-3"
+            >
+              Beranda
+            </Nav.Link>
             
             {user ? (
-               <div className="flex items-center space-x-4 ml-4">
-                 <span className="text-sm font-semibold bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
-                   Hi, {user.name}
-                 </span>
-                 <button onClick={() => handleNav('dashboard')} className="flex items-center text-gray-600 hover:text-blue-600">
-                   <LayoutDashboard className="w-4 h-4 mr-1"/> Dashboard
-                 </button>
-                 <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm transition flex items-center">
-                   <LogOut className="w-4 h-4 mr-1" /> Keluar
-                 </button>
-               </div>
-            ) : (
-              <button onClick={() => handleNav('login')} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-medium transition ml-4">
-                Login Portal
-              </button>
-            )}
-          </div>
+              // Tampilan Sudah Login
+              <Dropdown align="end">
+                <Dropdown.Toggle variant="light" id="dropdown-basic" className="d-flex align-items-center border rounded-pill px-3 py-2 text-dark bg-light">
+                   <User size={18} className="me-2 text-primary"/> 
+                   <span className="fw-semibold small">Hi, {user.name}</span>
+                </Dropdown.Toggle>
 
-          {/* Mobile menu toggle */}
-          <div className="md:hidden flex items-center">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-500">
-              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden bg-white border-t p-4 space-y-2">
-          <button onClick={() => handleNav('home')} className="block w-full text-left px-3 py-2 hover:bg-gray-100">Beranda</button>
-          {user ? (
-            <>
-              <button onClick={() => handleNav('dashboard')} className="block w-full text-left px-3 py-2 hover:bg-gray-100">Dashboard</button>
-              <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-red-600">Keluar</button>
-            </>
-          ) : (
-            <button onClick={() => handleNav('login')} className="block w-full text-left px-3 py-2 text-blue-600 font-bold">Login</button>
-          )}
-        </div>
-      )}
-    </nav>
+                <Dropdown.Menu className="shadow-sm border-0 mt-2">
+                  <Dropdown.Item onClick={() => handleNav('dashboard')} className="d-flex align-items-center py-2">
+                    <LayoutDashboard size={16} className="me-2 text-muted"/> Dashboard
+                  </Dropdown.Item>
+                  <Dropdown.Divider />
+                  <Dropdown.Item onClick={handleLogout} className="d-flex align-items-center py-2 text-danger">
+                    <LogOut size={16} className="me-2"/> Keluar
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown>
+            ) : (
+              // Tampilan Belum Login
+              <Button 
+                variant="primary" 
+                onClick={() => handleNav('login')} 
+                className="px-4 py-2 fw-bold rounded-pill shadow-sm"
+              >
+                Login Portal
+              </Button>
+            )}
+          </Nav>
+        </Navbar.Collapse>
+      </Container>
+    </Navbar>
   );
 }

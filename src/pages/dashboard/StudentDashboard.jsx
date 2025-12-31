@@ -1,5 +1,6 @@
 import React from 'react';
-import { Award, BookOpen, ChevronRight } from 'lucide-react';
+import { Row, Col, Card, ProgressBar, Badge, ListGroup } from 'react-bootstrap';
+import { Award, BookOpen, Clock, Calendar } from 'lucide-react';
 
 const mockSchedules = [
   { id: 1, day: "Senin", time: "14:00 - 16:00", subject: "Matematika", teacher: "Pak Budi", room: "Ruang A" },
@@ -9,70 +10,68 @@ const mockSchedules = [
 
 export default function StudentDashboard() {
   return (
-    <div className="space-y-6">
-      {/* Kartu Status Paket */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-6 text-white shadow-lg">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-2xl font-bold mb-1">Paket Aktif: Reguler SMA</h2>
-            <p className="text-blue-100 opacity-90">Berlaku hingga: 31 Des 2024</p>
+    <Row className="g-4">
+      {/* Kartu Status Utama */}
+      <Col xs={12}>
+        <Card className="bg-primary text-white shadow border-0 overflow-hidden">
+          <Card.Body className="p-4 d-flex justify-content-between align-items-center">
+            <div>
+              <Badge bg="warning" text="dark" className="mb-2">Paket Aktif</Badge>
+              <h2 className="fw-bold">Reguler SMA - Kelas 12</h2>
+              <p className="mb-0 opacity-75"><Calendar size={16} className="me-1"/> Berlaku hingga 31 Des 2024</p>
+            </div>
+            <Award size={64} className="opacity-50 text-white" />
+          </Card.Body>
+          <div className="bg-dark bg-opacity-25 p-3">
+             <div className="d-flex justify-content-between text-sm mb-1">
+               <span>Kehadiran Bulan Ini</span>
+               <span className="fw-bold">85%</span>
+             </div>
+             <ProgressBar variant="warning" now={85} style={{ height: '8px' }} />
           </div>
-          <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-            <Award className="w-8 h-8 text-yellow-300" />
-          </div>
-        </div>
-        <div className="mt-6">
-          <div className="flex justify-between text-sm mb-1">
-            <span>Kehadiran Bulan Ini</span>
-            <span>85%</span>
-          </div>
-          <div className="w-full bg-blue-900/50 rounded-full h-2.5">
-            <div className="bg-yellow-400 h-2.5 rounded-full" style={{ width: '85%' }}></div>
-          </div>
-        </div>
-      </div>
+        </Card>
+      </Col>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Jadwal Siswa */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="font-bold text-lg text-gray-800 mb-4">Jadwal Saya</h3>
-          <ul className="divide-y divide-gray-100">
+      {/* Jadwal */}
+      <Col md={6}>
+        <Card className="shadow-sm border-0 h-100">
+          <Card.Header className="bg-white fw-bold py-3">Jadwal Pelajaran</Card.Header>
+          <ListGroup variant="flush">
             {mockSchedules.map(sch => (
-              <li key={sch.id} className="py-3 flex items-center">
-                <div className="bg-gray-100 p-2 rounded text-center min-w-[60px] mr-4">
-                  <span className="block text-xs font-bold text-gray-500">{sch.day}</span>
-                  <span className="block text-sm font-bold text-blue-600">{sch.time.split(' - ')[0]}</span>
+              <ListGroup.Item key={sch.id} className="d-flex align-items-center py-3">
+                <div className="bg-light p-2 rounded text-center me-3" style={{minWidth: '70px'}}>
+                  <div className="small fw-bold text-muted text-uppercase">{sch.day}</div>
+                  <div className="fw-bold text-primary">{sch.time.split(' - ')[0]}</div>
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">{sch.subject}</p>
-                  <p className="text-sm text-gray-500">Bersama {sch.teacher}</p>
+                  <h6 className="mb-0 fw-bold">{sch.subject}</h6>
+                  <small className="text-muted">Pengajar: {sch.teacher} • {sch.room}</small>
                 </div>
-              </li>
+              </ListGroup.Item>
             ))}
-          </ul>
-        </div>
+          </ListGroup>
+        </Card>
+      </Col>
 
-        {/* Materi Terbaru */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="font-bold text-lg text-gray-800 mb-4">Materi Terbaru</h3>
-          <div className="space-y-3">
+      {/* Materi */}
+      <Col md={6}>
+        <Card className="shadow-sm border-0 h-100">
+          <Card.Header className="bg-white fw-bold py-3">Materi Terbaru</Card.Header>
+          <ListGroup variant="flush">
             {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center justify-between p-3 border rounded-lg hover:border-blue-300 transition cursor-pointer group">
-                <div className="flex items-center">
-                  <div className="bg-red-100 p-2 rounded mr-3">
-                    <BookOpen className="w-4 h-4 text-red-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium group-hover:text-blue-600">Rumus Trigonometri Dasar.pdf</p>
-                    <p className="text-xs text-gray-500">Diunggah 2 jam lalu</p>
-                  </div>
+              <ListGroup.Item key={i} action className="d-flex align-items-center py-3 border-0">
+                <div className="p-2 rounded bg-danger bg-opacity-10 text-danger me-3">
+                  <BookOpen size={20} />
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500" />
-              </div>
+                <div>
+                  <div className="fw-medium">Latihan Soal Trigonometri.pdf</div>
+                  <small className="text-muted">Diunggah 2 jam lalu</small>
+                </div>
+              </ListGroup.Item>
             ))}
-          </div>
-        </div>
-      </div>
-    </div>
+          </ListGroup>
+        </Card>
+      </Col>
+    </Row>
   );
 }

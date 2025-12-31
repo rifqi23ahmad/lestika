@@ -1,28 +1,58 @@
-// Simulasi Auth sederhana (bisa diganti dengan supabase.auth.signInWithPassword nanti)
+import { supabase } from '../lib/supabase';
+
 export const authService = {
-  login: async (username, role) => {
-    // Di real app, ini akan hit Supabase Auth
-    // Untuk sekarang kita mock behavior sesuai kode lama tapi terstruktur
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        let userData = { name: '', role: role, id: 'user-123' };
-        if (role === 'admin') userData.name = "Admin MAPA";
-        if (role === 'guru') userData.name = "Bpk. Guru Budi";
-        if (role === 'siswa') userData.name = "Andi Siswa";
-        
-        localStorage.setItem('user_session', JSON.stringify(userData));
-        resolve(userData);
-      }, 500);
+  // Login
+  login: async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
+    if (error) throw error;
+    return data;
   },
 
+  // Register
+  register: async (email, password, fullName, role = 'siswa') => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          role: role 
+        }
+      }
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  // Logout
   logout: async () => {
-    localStorage.removeItem('user_session');
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
     return true;
   },
 
-  getSession: () => {
-    const session = localStorage.getItem('user_session');
-    return session ? JSON.parse(session) : null;
+  // Cek Sesi (DIPERBAIKI)
+  getSession: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+
+    // STEP PENTING: Ambil data Role yang ASLI dari tabel 'profiles'
+    // Jangan percaya metadata session karena bisa usang
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+
+    return {
+      id: session.user.id,
+      email: session.user.email,
+      // Prioritaskan role dari tabel profiles, jika null baru fallback ke metadata/siswa
+      role: profile?.role || session.user.user_metadata?.role || 'siswa',
+      name: profile?.full_name || session.user.user_metadata?.full_name || session.user.email
+    };
   }
 };
