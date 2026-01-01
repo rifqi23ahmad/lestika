@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Card, Row, Col, Button, Form, Alert, Badge } from 'react-bootstrap';
-import { FileText, CreditCard, CheckCircle } from 'lucide-react'; // Hapus Upload/ArrowLeft jika tidak dipakai
+import { Container, Card, Row, Col, Button, Form, Alert } from 'react-bootstrap';
+import { FileText, CreditCard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { useLocation, useNavigate } from 'react-router-dom'; // PENTING
+import { useLocation, useNavigate } from 'react-router-dom';
+import { invoiceService } from '../services/invoiceService'; // Import Service
 
 export default function RegisterView() {
   const { user } = useAuth();
@@ -23,10 +24,10 @@ export default function RegisterView() {
     }
   }, [selectedPackage, navigate]);
 
-  if (!selectedPackage || !user) return null; // Cegah render error
+  if (!selectedPackage || !user) return null;
 
-  // Hitung total
-  const adminFee = 5000;
+  // Hitung total (Disamakan dengan invoiceService: Rp 15.000)
+  const adminFee = 15000;
   const totalAmount = Number(selectedPackage.price) + adminFee;
 
   const handlePayment = async (e) => {
@@ -36,7 +37,7 @@ export default function RegisterView() {
     try {
       let proofUrl = null;
 
-      // 1. Upload Bukti
+      // 1. Upload Bukti (Jika ada)
       if (file) {
         const fileName = `pay_${user.id}_${Date.now()}`;
         const { error: uploadError } = await supabase.storage
@@ -49,32 +50,40 @@ export default function RegisterView() {
         proofUrl = publicUrlData.publicUrl;
       }
 
-      // 2. Simpan Invoice
-      const status = proofUrl ? 'waiting_confirmation' : 'unpaid';
-      const invoicePayload = {
-        invoice_no: `INV-${Date.now()}`,
-        student_name: user.name,
-        student_jenjang: user.jenjang || '-',
-        student_kelas: user.kelas || '-',
-        student_whatsapp: user.whatsapp || '-',
-        package_id: selectedPackage.id,
-        package_name: selectedPackage.title,
-        package_price: selectedPackage.price,
-        admin_fee: adminFee,
-        total_amount: totalAmount,
-        status: status,
-        payment_proof_url: proofUrl,
-      };
-      
-      const { data, error } = await supabase.from('invoices').insert([invoicePayload]).select();
-      if (error) throw error;
+      // 2. Buat Invoice Menggunakan Service
+      // Parameter: (registrationData, selectedPackage, userId, userEmail)
+      const newInvoice = await invoiceService.create(
+        user,           // registrationData (berisi name, kelas, jenjang, dll)
+        selectedPackage, 
+        user.id, 
+        user.email
+      );
 
-      // 3. SUKSES -> PINDAH KE HALAMAN INVOICE BAWA DATA
-      // Kita kirim data[0] (hasil insert) ke halaman invoice
+      // 3. Update Invoice jika ada Bukti Bayar
+      // (Karena invoiceService defaultnya status 'unpaid' dan tanpa bukti)
+      if (proofUrl && newInvoice) {
+        const { error: updateError } = await supabase
+          .from('invoices')
+          .update({
+            status: 'waiting_confirmation',
+            payment_proof_url: proofUrl
+          })
+          .eq('id', newInvoice.id);
+
+        if (updateError) throw updateError;
+        
+        // Update object lokal untuk dikirim ke halaman selanjutnya
+        newInvoice.status = 'waiting_confirmation';
+        newInvoice.payment_proof_url = proofUrl;
+      }
+
       alert("Invoice berhasil dibuat!");
-      navigate('/invoice', { state: { invoice: data[0] } });
+      
+      // 4. Pindah ke halaman Invoice
+      navigate('/invoice', { state: { invoice: newInvoice } });
 
     } catch (error) {
+      console.error(error);
       alert("Gagal memproses: " + error.message);
     } finally {
       setLoading(false);
@@ -137,11 +146,14 @@ export default function RegisterView() {
                 <Form.Group className="mb-3">
                     <Form.Label className="fw-bold small">Upload Bukti Transfer</Form.Label>
                     <Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} />
+                    <Form.Text className="text-muted">
+                      Opsional. Bisa diupload nanti di menu Invoice.
+                    </Form.Text>
                 </Form.Group>
 
                 <div className="d-grid gap-2">
                     <Button type="submit" variant="success" size="lg" disabled={loading}>
-                        {loading ? 'Memproses...' : (file ? 'Kirim Bukti Pembayaran' : 'Simpan & Bayar Nanti')}
+                        {loading ? 'Memproses...' : (file ? 'Kirim Bukti Pembayaran' : 'Bayar Nanti')}
                     </Button>
                     <Button variant="outline-secondary" onClick={() => navigate('/')}>Batal</Button>
                 </div>

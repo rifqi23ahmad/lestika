@@ -1,35 +1,51 @@
 import { supabase } from '../lib/supabase';
 
 export const invoiceService = {
-  // Tambahkan parameter userId dan userEmail
   create: async (registrationData, selectedPackage, userId, userEmail) => {
+    // 1. Hitung Biaya
     const adminFee = 15000;
     const total = Number(selectedPackage.price) + adminFee;
-    const invoiceNo = `INV/MAPA/${new Date().getFullYear()}/${Math.floor(Math.random() * 10000)}`;
-    const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    
+    // 2. Buat Nomor Invoice
+    const invoiceNo = `INV-${Date.now()}`;
 
+    // 3. Payload: HANYA gunakan kolom yang ada di kode asli RegisterView kamu.
+    // Jangan tambah kolom user_id/email/due_date jika belum bikin kolomnya di database.
     const payload = {
       invoice_no: invoiceNo,
-      user_id: userId,        // SIMPAN ID (Kunci Utama)
-      email: userEmail,       // SIMPAN EMAIL (Cadangan)
+      
+      // Data Siswa
       student_name: registrationData.name,
-      student_data: registrationData,
+      student_jenjang: registrationData.jenjang || '-',
+      student_kelas: registrationData.kelas || '-',
+      student_whatsapp: registrationData.whatsapp || '-',
+      
+      // Data Paket
       package_id: selectedPackage.id,
-      amount: total,          // Pastikan nama kolom di DB 'amount' atau 'total_amount' (sesuaikan DB anda)
-      total_amount: total,    // Jaga-jaga jika anda pakai total_amount
-      due_date: dueDate,
-      status: 'unpaid',       // Default biasanya unpaid/pending
-      package_name: selectedPackage.title, // Simpan nama paket biar gampang query
+      package_name: selectedPackage.title,
       package_price: selectedPackage.price,
-      admin_fee: adminFee
+      
+      // Biaya
+      admin_fee: adminFee,
+      total_amount: total, // Pastikan ini 'total_amount', bukan 'amount'
+      
+      // Status
+      status: 'unpaid' 
+      // payment_proof_url: null (default null dari database biasanya)
     };
+
+    // 4. Debugging: Cek di Console browser jika masih error
+    console.log("Mengirim payload invoice:", payload);
 
     const { data, error } = await supabase
       .from('invoices')
       .insert([payload])
       .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error Supabase:", error);
+      throw error;
+    }
     
     return data[0];
   }

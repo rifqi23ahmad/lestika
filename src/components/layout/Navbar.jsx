@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navbar, Container, Nav, Button, Dropdown } from 'react-bootstrap';
-import { BookOpen, LayoutDashboard, LogOut, User } from 'lucide-react';
+// FIX: Tambahkan 'FileText' ke dalam import
+import { BookOpen, LayoutDashboard, LogOut, User, Calendar, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -38,6 +39,17 @@ export default function AppNavbar() {
               Beranda
             </Nav.Link>
             
+            {/* MENU JADWAL (Hanya muncul jika login) */}
+            {user && (
+              <Nav.Link 
+                href="#" 
+                onClick={(e) => { e.preventDefault(); navigate('/jadwal'); }} 
+                className="fw-medium text-dark px-3 d-flex align-items-center"
+              >
+                 Jadwal
+              </Nav.Link>
+            )}
+            
             {user ? (
               <Dropdown align="end">
                 <Dropdown.Toggle variant="light" id="dropdown-basic" className="d-flex align-items-center border rounded-pill px-3 py-2 text-dark bg-light">
@@ -48,6 +60,9 @@ export default function AppNavbar() {
                 <Dropdown.Menu className="shadow-sm border-0 mt-2">
                   <Dropdown.Item onClick={() => navigate('/dashboard')} className="d-flex align-items-center py-2">
                     <LayoutDashboard size={16} className="me-2 text-muted"/> Dashboard
+                  </Dropdown.Item>
+                  <Dropdown.Item onClick={() => navigate('/invoice')} className="d-flex align-items-center py-2">
+                    <FileText size={16} className="me-2 text-muted"/> Tagihan Saya
                   </Dropdown.Item>
                   <Dropdown.Divider />
                   <Dropdown.Item onClick={handleLogout} className="d-flex align-items-center py-2 text-danger">

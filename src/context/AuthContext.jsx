@@ -8,44 +8,77 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // --- HELPER 1: Buat User Dasar (Instan) ---
+  // Data ini dipakai agar user bisa langsung masuk tanpa menunggu loading DB
+  const getBasicUser = (authUser) => {
+    return {
+      id: authUser.id,
+      email: authUser.email,
+      role: 'siswa', // Default sementara agar tidak crash
+      name: authUser.user_metadata?.name || authUser.email, // Pakai nama dari metadata atau email dulu
+      isPartial: true // Penanda bahwa data ini belum lengkap
+    };
+  };
+
+  // --- HELPER 2: Ambil Data Profile Lengkap (Background) ---
+  const getEnrichedUser = async (authUser) => {
+    if (!authUser) return null;
+    
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      // Gabungkan data auth + profile
+      return {
+        id: authUser.id,
+        email: authUser.email,
+        role: profile?.role || 'siswa', 
+        name: profile?.full_name || authUser.user_metadata?.name || authUser.email,
+        jenjang: profile?.jenjang,
+        kelas: profile?.kelas,
+        whatsapp: profile?.whatsapp,
+        isPartial: false // Data sudah lengkap
+      };
+    } catch (err) {
+      console.warn("Gagal load profile, tetap gunakan data basic.");
+      return getBasicUser(authUser);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
     const initSession = async () => {
       try {
-        // --- 1. JALUR CEPAT (INSTANT CHECK) ---
-        // Cek apakah ada jejak token Supabase di LocalStorage browser.
-        // Format key Supabase: 'sb-<project-id>-auth-token'
+        // Cek Token LocalStorage
         const hasLocalToken = Object.keys(localStorage).some(key => 
           key.startsWith('sb-') && key.endsWith('-auth-token')
         );
 
-        // Jika TIDAK ADA token di HP/Laptop, user pasti Guest/Belum Login.
-        // Langsung stop loading DETIK INI JUGA (0 ms). Jangan tunggu server!
         if (!hasLocalToken) {
-          if (mounted) {
-            setUser(null);
-            setLoading(false);
-          }
-          return; // Stop di sini, tidak perlu request network
+          if (mounted) { setUser(null); setLoading(false); }
+          return;
         }
 
-        // --- 2. JALUR NORMAL (VALIDASI SERVER) ---
-        // Hanya jalan jika ditemukan token. Kita beri waktu maksimal 2 detik.
-        // Jika koneksi > 2 detik, kita anggap gagal agar user tidak bengong lama.
-        const sessionPromise = authService.getSession();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Slow connection')), 2000)
-        );
-
-        // Balapan: Mana lebih cepat? Data Server atau Timer 2 Detik?
-        const currentUser = await Promise.race([sessionPromise, timeoutPromise]);
+        // Ambil sesi tanpa timeout (biarkan Supabase bekerja)
+        const sessionData = await authService.getSession();
         
-        if (mounted) setUser(currentUser);
+        if (sessionData && mounted) {
+            // 1. Tampilkan User Basic DULU (Instan)
+            const basicUser = getBasicUser(sessionData);
+            setUser(basicUser);
+            
+            // 2. Ambil Profile Lengkap (Background)
+            getEnrichedUser(sessionData).then(fullUser => {
+                if (mounted) setUser(fullUser);
+            });
+        }
 
       } catch (error) {
-        // Jika error/timeout, force logout agar user bisa login ulang segera
-        console.warn("Fast load fallback:", error.message);
+        console.warn("Session init error:", error.message);
         if (mounted) setUser(null);
       } finally {
         if (mounted) setLoading(false);
@@ -54,50 +87,23 @@ export const AuthProvider = ({ children }) => {
 
     initSession();
 
-    // --- LISTENER AUTH REALTIME ---
+    // --- LISTENER AUTH REALTIME (Logika Dipercepat) ---
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      if (event === 'SIGNED_IN' && session) {
-        // Ambil data detail user (profile)
-        try {
-            // Timeout pendek untuk profile fetch (3s)
-            const fetchProfile = supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-            
-            const timeoutProfile = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Profile timeout')), 3000)
-            );
+      if (event === 'SIGNED_IN' && session?.user) {
+        // PERUBAHAN UTAMA DISINI:
+        // 1. Jangan tunggu await getEnrichedUser. Langsung set user basic!
+        const basicUser = getBasicUser(session.user);
+        setUser(basicUser); 
 
-            const { data: profile } = await Promise.race([fetchProfile, timeoutProfile])
-                                     .catch(() => ({ data: null }));
+        // 2. Fetch profile di background, update user setelah selesai
+        getEnrichedUser(session.user).then((fullUser) => {
+            if (mounted) setUser(fullUser);
+        });
 
-            setUser({
-                id: session.user.id,
-                email: session.user.email,
-                role: profile?.role || 'siswa', 
-                name: profile?.full_name || session.user.email,
-                jenjang: profile?.jenjang,
-                kelas: profile?.kelas,
-                whatsapp: profile?.whatsapp
-            });
-        } catch (err) {
-            console.error("Profile load error:", err);
-            // Fallback user basic jika profile gagal load
-            setUser({
-                id: session.user.id,
-                email: session.user.email,
-                role: 'siswa',
-                name: session.user.email
-            });
-        }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
-        // Opsional: Bersihkan cache jika logout
-        // localStorage.clear(); 
       }
     });
 
@@ -108,12 +114,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    // Timeout login tetap agak panjang (5s) karena user sadar sedang menunggu
-    const loginAction = authService.login(email, password);
-    const timeoutAction = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Login timeout - periksa sinyal Anda')), 5000)
-    );
-    await Promise.race([loginAction, timeoutAction]);
+    // Tidak ada timeout, tidak ada blocking berlebih
+    // Begitu fungsi ini selesai, onAuthStateChange di atas akan menangkap event SIGNED_IN
+    await authService.login(email, password);
   };
 
   const register = async (email, password, name, detailData) => {
@@ -128,7 +131,8 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{ user, login, register, logout, loading }}>
       {loading ? (
-        // Loading Screen Minimalis (Hanya muncul jika user punya token tapi sinyal lambat)
+        // Loading hanya muncul saat inisialisasi awal (refresh halaman).
+        // Saat klik login, loading ini TIDAK muncul, jadi transisi lebih mulus.
         <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
            <div className="text-center">
              <div className="spinner-border text-primary" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>

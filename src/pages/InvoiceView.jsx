@@ -1,237 +1,206 @@
-import React, { useEffect } from 'react';
-import { Container, Card, Table, Button, Badge, Row, Col } from 'react-bootstrap';
-import { Printer, ArrowLeft, BookOpen } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Container, Card, Badge, Button, Alert, Row, Col, Spinner } from 'react-bootstrap';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
+import { FileText, Clock, CheckCircle, AlertTriangle, Upload, ArrowRight } from 'lucide-react';
 
 export default function InvoiceView() {
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const invoiceData = location.state?.invoice;
 
+  const [invoice, setInvoice] = useState(location.state?.invoice || null);
+  const [loading, setLoading] = useState(!invoice); // Jika ada state, tidak loading
+  const [uploading, setUploading] = useState(false);
+  const [file, setFile] = useState(null);
+
+  // Jika tidak ada data dari navigasi (misal refresh page), ambil dari DB
   useEffect(() => {
-    if (!invoiceData) navigate('/');
-  }, [invoiceData, navigate]);
+    if (!invoice && user) {
+      fetchLatestInvoice();
+    }
+  }, [user]);
 
-  if (!invoiceData) return null;
+  const fetchLatestInvoice = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
 
-  // --- HELPER FUNCTIONS ---
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('id-ID', {
-        day: 'numeric', month: 'long', year: 'numeric'
-    });
-  };
-
-  const formatRupiah = (num) => "Rp " + Number(num).toLocaleString('id-ID');
-
-  const getStatusBadge = (status) => {
-    switch(status) {
-        case 'paid': return <Badge bg="success" className="px-3 py-2 rounded-0">LUNAS</Badge>;
-        case 'waiting_confirmation': return <Badge bg="warning" text="dark" className="px-3 py-2 rounded-0">MENUNGGU</Badge>;
-        default: return <Badge bg="danger" className="px-3 py-2 rounded-0">BELUM BAYAR</Badge>;
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = data not found
+      setInvoice(data);
+    } catch (err) {
+      console.error("Gagal ambil invoice:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="bg-light min-vh-100 py-4">
-      {/* CSS KHUSUS PRINT (FIX 1 HALAMAN) 
-         - Menggunakan height: 296mm (bukan 297mm) untuk menghindari rounding error browser yang bikin halaman ke-2 muncul.
-         - Flexbox Column: Memaksa Footer selalu di bawah tapi tetap dalam container.
-      */}
-      <style>{`
-        @media print {
-            @page { 
-                size: A4; 
-                margin: 0; 
-            }
-            body, html { 
-                margin: 0; 
-                padding: 0;
-                height: 100%;
-                background-color: white !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                overflow: hidden; /* Hapus scrollbar saat print */
-            }
-            /* Sembunyikan elemen UI website */
-            .no-print, nav, footer, .btn { 
-                display: none !important; 
-            }
-            /* Area Cetak Utama */
-            .printable-area {
-                position: relative;
-                width: 210mm;
-                height: 296mm; /* Kurangi 1mm dari A4 (297mm) sebagai toleransi */
-                padding: 15mm 20mm; /* Padding aman */
-                background: white;
-                margin: 0;
-                display: flex;
-                flex-direction: column; /* Susun atas-bawah */
-                justify-content: space-between; /* Header di atas, Footer di bawah */
-            }
-            /* Pastikan elemen terlihat */
-            .printable-area * {
-                visibility: visible;
-            }
-            /* Reset Layout Bootstrap untuk Print */
-            .container, .card, .card-body {
-                width: 100% !important;
-                max-width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                border: none !important;
-                box-shadow: none !important;
-            }
-        }
+  const handleUpload = async () => {
+    if (!file || !invoice) return;
+    setUploading(true);
+    try {
+      // 1. Upload File
+      const fileName = `proof_${invoice.invoice_no}_${Date.now()}`;
+      const { error: uploadError } = await supabase.storage
+        .from('payments')
+        .upload(fileName, file);
+      
+      if (uploadError) throw uploadError;
 
-        /* TAMPILAN WEB (PREVIEW) */
-        .printable-area {
-            width: 210mm;
-            min-height: 297mm;
-            background: white;
-            margin: auto;
-            padding: 15mm 20mm;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-      `}</style>
+      // 2. Get Public URL
+      const { data: publicUrlData } = supabase.storage.from('payments').getPublicUrl(fileName);
+      const proofUrl = publicUrlData.publicUrl;
 
-      <Container>
-        {/* TOMBOL NAVIGASI (Hanya di Layar) */}
-        <div className="d-flex justify-content-center gap-3 mb-4 no-print">
-            <Button variant="dark" onClick={() => navigate('/')} className="px-4">
-                <ArrowLeft size={18} className="me-2"/> Kembali
-            </Button>
-            <Button variant="primary" onClick={() => window.print()} className="px-4 shadow">
-                <Printer size={18} className="me-2"/> Cetak PDF (1 Halaman)
-            </Button>
-        </div>
+      // 3. Update Invoice Status
+      const { error: updateError } = await supabase
+        .from('invoices')
+        .update({ 
+          status: 'waiting_confirmation',
+          payment_proof_url: proofUrl 
+        })
+        .eq('id', invoice.id);
 
-        {/* KERTAS A4 */}
-        <div className="printable-area shadow-sm">
-            
-            {/* --- BAGIAN ATAS (Header + Konten) --- */}
-            <div>
-                {/* KOP SURAT */}
-                <div className="border-bottom border-2 border-dark pb-3 mb-4">
-                    <div className="d-flex justify-content-between align-items-center">
-                        <div className="d-flex align-items-center gap-3">
-                            <div className="bg-primary text-white d-flex align-items-center justify-content-center" style={{ width: '50px', height: '50px' }}>
-                                <BookOpen size={28} />
-                            </div>
-                            <div>
-                                <h4 className="fw-bold mb-0 text-uppercase" style={{ letterSpacing: '1px' }}>BIMBEL MAPA</h4>
-                                <small className="text-muted d-block" style={{ lineHeight: '1.2' }}>Jl. Pendidikan No. 123, Jakarta</small>
-                            </div>
-                        </div>
-                        <div className="text-end">
-                            <h2 className="fw-bold text-primary mb-0">INVOICE</h2>
-                            <small className="text-muted">#{invoiceData.invoice_no}</small>
-                        </div>
-                    </div>
-                </div>
+      if (updateError) throw updateError;
 
-                {/* INFO UTAMA */}
-                <Row className="mb-4 small">
-                    <Col xs={6}>
-                        <div className="text-uppercase text-secondary fw-bold mb-1" style={{ fontSize: '0.7rem' }}>Ditagihkan Kepada:</div>
-                        <h5 className="fw-bold mb-1">{invoiceData.student_name}</h5>
-                        <div className="text-muted">
-                            Kelas {invoiceData.student_kelas} ({invoiceData.student_jenjang})<br/>
-                            WA: {invoiceData.student_whatsapp || '-'}
-                        </div>
-                    </Col>
-                    <Col xs={6} className="text-end">
-                        <table className="ms-auto">
-                            <tbody>
-                                <tr>
-                                    <td className="text-muted pe-3">Tanggal:</td>
-                                    <td className="fw-bold">{formatDate(invoiceData.created_at)}</td>
-                                </tr>
-                                <tr>
-                                    <td className="text-muted pe-3">Status:</td>
-                                    <td>{getStatusBadge(invoiceData.status)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </Col>
-                </Row>
+      // 4. Refresh State
+      setInvoice({ ...invoice, status: 'waiting_confirmation', payment_proof_url: proofUrl });
+      alert("Bukti pembayaran berhasil dikirim! Admin akan segera memverifikasi.");
 
-                {/* TABEL ITEM */}
-                <div className="mb-4">
-                    <Table className="align-middle border-top border-dark mb-0" hover={false} size="sm">
-                        <thead className="bg-light">
-                            <tr>
-                                <th className="py-2 ps-2 text-uppercase small fw-bold text-secondary">Layanan</th>
-                                <th className="py-2 pe-2 text-end text-uppercase small fw-bold text-secondary">Harga</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td className="p-3 border-bottom">
-                                    <div className="fw-bold text-dark">{invoiceData.package_name}</div>
-                                    <div className="small text-muted">Paket Bimbingan Belajar (1 Bulan)</div>
-                                </td>
-                                <td className="p-3 text-end fw-bold align-top">
-                                    {formatRupiah(invoiceData.package_price)}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="p-3 border-bottom">
-                                    <div className="fw-bold text-dark">Biaya Admin</div>
-                                    <div className="small text-muted">Administrasi & Server</div>
-                                </td>
-                                <td className="p-3 text-end fw-bold align-top">
-                                    {formatRupiah(invoiceData.admin_fee)}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </Table>
-                </div>
+    } catch (err) {
+      alert("Gagal upload: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
-                {/* TOTAL SUMMARY */}
-                <div className="row justify-content-end mb-4">
-                    <div className="col-6">
-                        <div className="bg-dark text-white p-3 d-flex justify-content-between align-items-center shadow-sm">
-                            <span className="fw-bold small text-uppercase">Total Tagihan</span>
-                            <span className="h4 mb-0 fw-bold">{formatRupiah(invoiceData.total_amount)}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  // --- RENDER HELPERS ---
+  const getStatusBadge = (status) => {
+    switch(status) {
+      case 'paid': return <Badge bg="success" className="px-3 py-2"><CheckCircle size={16} className="me-1"/> Lunas</Badge>;
+      case 'waiting_confirmation': return <Badge bg="warning" text="dark" className="px-3 py-2"><Clock size={16} className="me-1"/> Menunggu Konfirmasi</Badge>;
+      default: return <Badge bg="danger" className="px-3 py-2"><AlertTriangle size={16} className="me-1"/> Belum Dibayar</Badge>;
+    }
+  };
 
-            {/* --- BAGIAN BAWAH (Footer & TTD) --- */}
-            {/* Flex-grow-0 memastikan ini nempel di bawah tapi tidak maksa page baru */}
-            <div>
-                <Row className="align-items-end">
-                    <Col xs={7}>
-                        <div className="border p-3 rounded bg-white small">
-                            <div className="fw-bold text-primary mb-1">INFO PEMBAYARAN</div>
-                            <div className="mb-1">Bank BCA: <strong>123 456 7890</strong></div>
-                            <div>a.n. PT BIMBEL MAPA</div>
-                            <div className="text-muted mt-2 fst-italic" style={{ fontSize: '0.7rem' }}>
-                                *Harap transfer sesuai nominal hingga digit terakhir.
-                            </div>
-                        </div>
-                    </Col>
-                    <Col xs={5} className="text-center">
-                        <div className="mb-4 d-inline-block">
-                            <div className="small text-muted mb-4">Jakarta, {formatDate(new Date())}</div>
-                            <div className="fw-bold border-bottom border-dark px-4 pb-1">Admin Keuangan</div>
-                        </div>
-                    </Col>
-                </Row>
-                
-                {/* Copyright Line */}
-                <div className="text-center mt-3 pt-2 border-top small text-muted" style={{ fontSize: '0.7rem' }}>
-                    Dokumen ini sah dan diterbitkan otomatis oleh sistem. Terima kasih atas kepercayaan Anda.
-                </div>
-            </div>
+  if (loading) return <div className="text-center py-5"><Spinner animation="border" variant="primary"/></div>;
 
+  if (!invoice) {
+    return (
+      <Container className="py-5 text-center">
+        <div className="py-5">
+           <FileText size={64} className="text-muted mb-3"/>
+           <h3>Belum Ada Tagihan</h3>
+           <p className="text-muted">Anda belum mendaftar paket belajar apapun.</p>
+           <Button onClick={() => navigate('/')} variant="primary">Pilih Paket Sekarang</Button>
         </div>
       </Container>
-    </div>
+    );
+  }
+
+  return (
+    <Container className="py-5">
+      <Card className="shadow-sm border-0 mx-auto" style={{ maxWidth: '800px' }}>
+        <Card.Header className="bg-white py-3 d-flex justify-content-between align-items-center">
+          <div>
+            <small className="text-muted d-block">Nomor Invoice</small>
+            <span className="fw-bold font-monospace">{invoice.invoice_no}</span>
+          </div>
+          {getStatusBadge(invoice.status)}
+        </Card.Header>
+        
+        <Card.Body className="p-4">
+          {/* JIKA SUDAH LUNAS */}
+          {invoice.status === 'paid' && (
+             <Alert variant="success" className="mb-4 text-center">
+                <h4 className="alert-heading fw-bold"><CheckCircle className="me-2"/>Pembayaran Berhasil!</h4>
+                <p>Paket belajar Anda sudah aktif. Silakan cek jadwal belajar Anda.</p>
+                <Button variant="outline-success" onClick={() => navigate('/jadwal')}>
+                   Lihat Jadwal Belajar <ArrowRight size={16}/>
+                </Button>
+             </Alert>
+          )}
+
+          <Row className="mb-4">
+             <Col md={6}>
+                <h6 className="text-secondary mb-3">Ditagihkan Kepada:</h6>
+                <h5 className="fw-bold">{invoice.student_name}</h5>
+                <p className="text-muted mb-0">
+                  {invoice.student_kelas} - {invoice.student_jenjang}<br/>
+                  {invoice.email}<br/>
+                  {invoice.student_whatsapp}
+                </p>
+             </Col>
+             <Col md={6} className="text-md-end mt-3 mt-md-0">
+                <h6 className="text-secondary mb-3">Detail Pembayaran:</h6>
+                <div className="fs-5 fw-bold text-primary">Rp {Number(invoice.total_amount).toLocaleString('id-ID')}</div>
+                <small className="text-muted">Jatuh Tempo: {new Date(invoice.created_at).toLocaleDateString()}</small>
+             </Col>
+          </Row>
+
+          <div className="table-responsive mb-4">
+            <table className="table table-bordered">
+                <thead className="bg-light">
+                    <tr>
+                        <th>Deskripsi</th>
+                        <th className="text-end">Jumlah</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <div className="fw-bold">{invoice.package_name}</div>
+                            <small className="text-muted">Paket Bimbingan Belajar</small>
+                        </td>
+                        <td className="text-end">Rp {Number(invoice.package_price).toLocaleString('id-ID')}</td>
+                    </tr>
+                    <tr>
+                        <td>Biaya Admin</td>
+                        <td className="text-end">Rp {Number(invoice.admin_fee).toLocaleString('id-ID')}</td>
+                    </tr>
+                    <tr className="fw-bold table-light">
+                        <td>Total</td>
+                        <td className="text-end">Rp {Number(invoice.total_amount).toLocaleString('id-ID')}</td>
+                    </tr>
+                </tbody>
+            </table>
+          </div>
+
+          {/* FORM UPLOAD BUKTI (Hanya jika belum lunas) */}
+          {invoice.status !== 'paid' && (
+            <div className="bg-light p-3 rounded">
+                <h6 className="fw-bold mb-3"><Upload size={18} className="me-2"/> Konfirmasi Pembayaran</h6>
+                
+                {invoice.status === 'waiting_confirmation' ? (
+                   <Alert variant="info" className="mb-0 small">
+                      Bukti pembayaran sudah dikirim. Admin sedang memverifikasi data Anda. 
+                      Anda bisa mengupload ulang jika bukti sebelumnya salah.
+                   </Alert>
+                ) : (
+                   <p className="small text-muted mb-2">Silakan transfer ke rekening <strong>BCA 123 456 7890 (PT BIMBEL MAPA)</strong> dan upload bukti transfer di bawah ini.</p>
+                )}
+
+                <div className="d-flex gap-2 mt-3">
+                   <input type="file" className="form-control" onChange={(e) => setFile(e.target.files[0])} accept="image/*" />
+                   <Button 
+                      variant="primary" 
+                      onClick={handleUpload} 
+                      disabled={uploading || !file}
+                      style={{ minWidth: '120px' }}
+                   >
+                      {uploading ? <Spinner size="sm" animation="border"/> : 'Upload'}
+                   </Button>
+                </div>
+            </div>
+          )}
+        </Card.Body>
+      </Card>
+    </Container>
   );
 }
