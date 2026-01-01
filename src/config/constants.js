@@ -3,16 +3,16 @@ export const APP_CONFIG = {
     ADMIN: 10000,
   },
   INVOICE: {
-    PREFIX: 'INV',
+    PREFIX: "INV",
     STATUS: {
-      UNPAID: 'unpaid',
-      WAITING: 'waiting_confirmation',
-      PAID: 'paid',
-    }
+      UNPAID: "unpaid",
+      WAITING: "waiting_confirmation",
+      PAID: "paid",
+    },
   },
   ROLES: {
-    ADMIN: 'admin',
-    GURU: 'guru',
-    SISWA: 'siswa',
-  }
+    ADMIN: "admin",
+    GURU: "guru",
+    SISWA: "siswa",
+  },
 };
