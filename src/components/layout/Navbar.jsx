@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navbar, Container, Nav, Button, Dropdown } from 'react-bootstrap';
-// FIX: Tambahkan 'FileText' ke dalam import
-import { BookOpen, LayoutDashboard, LogOut, User, Calendar, FileText } from 'lucide-react';
+// [UBAH] Hapus 'BookOpen' dari import karena sudah diganti gambar
+import { LayoutDashboard, LogOut, User, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,7 +23,14 @@ export default function AppNavbar() {
           onClick={(e) => { e.preventDefault(); navigate('/'); }} 
           className="d-flex align-items-center fw-bold text-primary fs-4"
         >
-          <BookOpen className="me-2" size={32} /> 
+          {/* [UBAH] Ganti Icon dengan Image Logo */}
+          <img 
+            src="/logo.png" 
+            alt="Logo MAPA" 
+            width="32" 
+            height="32" 
+            className="me-2 object-fit-contain"
+          />
           <span style={{ letterSpacing: '-1px' }}>MAPA</span>
         </Navbar.Brand>
         

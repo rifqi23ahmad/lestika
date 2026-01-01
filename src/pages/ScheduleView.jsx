@@ -37,17 +37,24 @@ export default function ScheduleView() {
   const checkPaymentAndFetchData = async () => {
     if (!user) return;
     try {
-      const { data: invoiceData } = await supabase
+      // [DIUBAH] Ambil expiry_date dan urutkan dari yang terbaru
+      const { data: invoices } = await supabase
         .from('invoices')
-        .select('id')
+        .select('id, expiry_date')
         .eq('user_id', user.id)
         .eq('status', 'paid')
-        .limit(1);
+        .order('created_at', { ascending: false }); // Ambil yang paling baru
         
-      const paid = invoiceData && invoiceData.length > 0;
-      setHasPaid(paid);
+      // Cek apakah ada invoice lunas yang BELUM expired
+      const activeInvoice = invoices?.find(inv => {
+        if (!inv.expiry_date) return true; // Jika tidak ada expiry date, anggap aktif selamanya
+        return new Date(inv.expiry_date) > new Date(); // Cek tanggal sekarang vs expiry
+      });
 
-      if (paid) {
+      const isAccessGranted = !!activeInvoice;
+      setHasPaid(isAccessGranted);
+
+      if (isAccessGranted) {
         await Promise.all([fetchMySchedules(), fetchAvailableSlots()]);
       }
     } catch (err) {
@@ -132,10 +139,11 @@ export default function ScheduleView() {
          </div>
          <h3 className="fw-bold">Akses Jadwal Terkunci</h3>
          <p className="text-muted mw-50 mx-auto">
-            Selesaikan pembayaran invoice Anda untuk memilih jadwal.
+            Paket Anda belum aktif atau masa aktif telah berakhir. <br/>
+            Silakan cek status paket atau lakukan pembayaran.
          </p>
-         <Button variant="primary" onClick={() => navigate('/invoice')}>
-            Cek Status Pembayaran
+         <Button variant="primary" onClick={() => navigate('/dashboard')}>
+            Cek Status Paket
          </Button>
       </Container>
     );
@@ -145,7 +153,7 @@ export default function ScheduleView() {
     <Container className="py-4">
       <Tabs defaultActiveKey="myschedule" className="mb-4 custom-tabs">
         
-        {/* TAB 1: JADWAL SAYA (Tampilan tetap sama) */}
+        {/* TAB 1: JADWAL SAYA */}
         <Tab eventKey="myschedule" title={<><CheckCircle size={18} className="me-2"/>Jadwal Saya</>}>
             <Card className="shadow-sm border-0">
                 <Card.Body>
@@ -233,7 +241,6 @@ export default function ScheduleView() {
                                             </div>
                                         </div>
                                         
-                                        {/* [UBAH] Panggil fungsi initiateBooking */}
                                         <Button 
                                             variant="primary" 
                                             className="w-100 mt-auto fw-bold" 
@@ -252,7 +259,7 @@ export default function ScheduleView() {
         </Tab>
       </Tabs>
 
-      {/* [BARU] Modal Konfirmasi Booking */}
+      {/* MODAL NOTIFIKASI & KONFIRMASI */}
       <Modal show={showConfirmModal} onHide={() => setShowConfirmModal(false)} centered>
         <Modal.Body className="p-4 text-center">
              <div className="mx-auto mb-3 p-3 bg-blue-100 rounded-full w-fit text-blue-600">
@@ -269,7 +276,6 @@ export default function ScheduleView() {
         </Modal.Body>
       </Modal>
 
-      {/* [BARU] Modal Info Status */}
       <Modal show={showInfoModal} onHide={() => setShowInfoModal(false)} centered>
         <Modal.Body className="p-4 text-center">
             <div className={`mx-auto mb-3 p-3 rounded-full w-fit ${infoModalContent.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>

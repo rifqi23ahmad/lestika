@@ -20,7 +20,7 @@ import {
   FileText,
   Download,
   TrendingUp,
-  RefreshCcw, // [BARU] Icon Refresh
+  RefreshCcw,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
@@ -29,11 +29,20 @@ export default function StudentDashboard() {
   const { user } = useAuth();
   const [activeInvoice, setActiveInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isExpired, setIsExpired] = useState(false); // [BARU] State Expired
+  const [isExpired, setIsExpired] = useState(false);
 
   const [materials, setMaterials] = useState([]);
   const [grades, setGrades] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -69,7 +78,7 @@ export default function StudentDashboard() {
               setIsExpired(true);
             } else {
               setIsExpired(false);
-              fetchAcademicData(); // Masih aktif, ambil data
+              fetchAcademicData();
             }
           } else {
             fetchAcademicData();
@@ -215,10 +224,9 @@ export default function StudentDashboard() {
                 <span className="small">
                   Berlaku hingga:{" "}
                   <strong>
+                    {/* [UBAH] Gunakan formatDate */}
                     {activeInvoice.expiry_date
-                      ? new Date(activeInvoice.expiry_date).toLocaleDateString(
-                          "id-ID"
-                        )
+                      ? formatDate(activeInvoice.expiry_date)
                       : "Selamanya"}
                   </strong>
                 </span>
@@ -229,7 +237,6 @@ export default function StudentDashboard() {
         </Card>
       </Col>
 
-      {/* ... (SISA KODE SAMA: Tabs Materi & Nilai) ... */}
       <Col md={12}>
         <Card className="shadow-sm border-0">
           <Card.Body>
@@ -273,10 +280,9 @@ export default function StudentDashboard() {
                           <div>
                             <h6 className="fw-bold mb-1">{item.title}</h6>
                             <small className="text-muted">
+                              {/* [UBAH] Gunakan formatDate */}
                               Jenjang: {item.jenjang || "Umum"} •{" "}
-                              {new Date(item.created_at).toLocaleDateString(
-                                "id-ID"
-                              )}
+                              {formatDate(item.created_at)}
                             </small>
                           </div>
                         </div>
@@ -341,10 +347,9 @@ export default function StudentDashboard() {
                             <td className="text-muted fst-italic">
                               "{g.feedback || "-"}"
                             </td>
+                            {/* [UBAH] Gunakan formatDate */}
                             <td className="text-muted small">
-                              {new Date(g.created_at).toLocaleDateString(
-                                "id-ID"
-                              )}
+                              {formatDate(g.created_at)}
                             </td>
                           </tr>
                         ))}

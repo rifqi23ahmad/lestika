@@ -2,10 +2,8 @@ import { supabase } from '../lib/supabase';
 import { APP_CONFIG } from '../config/constants';
 
 export const invoiceService = {
-  /**
-   * Menghitung total biaya berdasarkan paket
-   * @param {number} packagePrice 
-   */
+  // ... (fungsi calculateTotal & create TETAP SAMA, tidak perlu diubah) ...
+  
   calculateTotal(packagePrice) {
     const price = Number(packagePrice);
     const adminFee = APP_CONFIG.FEES.ADMIN;
@@ -16,61 +14,67 @@ export const invoiceService = {
     };
   },
 
-  /**
-   * Membuat Invoice baru
-   */
   async create(user, selectedPackage) {
     const { adminFee, total } = this.calculateTotal(selectedPackage.price);
-    
     const invoiceNo = `${APP_CONFIG.INVOICE.PREFIX}-${Date.now()}`;
-
     const payload = {
       invoice_no: invoiceNo,
+      user_id: user.id, 
       student_name: user.name,
       student_jenjang: user.jenjang || '-',
       student_kelas: user.kelas || '-',
       student_whatsapp: user.whatsapp || '-',
-      
       package_id: selectedPackage.id,
       package_name: selectedPackage.title,
       package_price: selectedPackage.price,
-      
       admin_fee: adminFee,
       total_amount: total,
-      
       status: APP_CONFIG.INVOICE.STATUS.UNPAID
     };
 
+    const { data, error } = await supabase.from('invoices').insert([payload]).select().single(); 
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * [BARU] Ambil semua history invoice user
+   */
+  async getHistory(userId) {
     const { data, error } = await supabase
       .from('invoices')
-      .insert([payload])
-      .select()
-      .single(); // Gunakan single() agar return object, bukan array
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
     return data;
   },
 
   /**
-   * Upload bukti bayar DAN update status invoice sekaligus
-   * Ini membungkus proses bisnis "Konfirmasi Pembayaran"
+   * [BARU] Ambil satu invoice berdasarkan ID (untuk refresh data)
    */
+  async getById(invoiceId) {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('id', invoiceId)
+      .single();
+      
+    if (error) throw error;
+    return data;
+  },
+
   async processPaymentConfirmation(invoiceId, userId, fileObj) {
     if (!fileObj) return null;
-
     try {
       const fileExt = fileObj.name.split('.').pop();
       const fileName = `pay_${invoiceId}_${userId}_${Date.now()}.${fileExt}`;
       
-      const { error: uploadError } = await supabase.storage
-          .from('payments')
-          .upload(fileName, fileObj);
-      
+      const { error: uploadError } = await supabase.storage.from('payments').upload(fileName, fileObj);
       if (uploadError) throw uploadError;
       
-      const { data: publicUrlData } = supabase.storage
-          .from('payments')
-          .getPublicUrl(fileName);
+      const { data: publicUrlData } = supabase.storage.from('payments').getPublicUrl(fileName);
 
       const { data, error: updateError } = await supabase
         .from('invoices')
@@ -83,9 +87,7 @@ export const invoiceService = {
         .single();
 
       if (updateError) throw updateError;
-      
       return data;
-
     } catch (error) {
       console.error("Payment Process Error:", error);
       throw error;
