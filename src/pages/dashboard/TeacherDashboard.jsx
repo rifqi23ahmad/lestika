@@ -18,10 +18,9 @@ export default function TeacherDashboard() {
     time: '', 
     subject: 'Matematika', 
     duration: 60,
-    selectedStudent: '' // Tambahan: ID Murid yang dipilih
+    selectedStudent: ''
   });
 
-  // State Nilai (Kode Lama)
   const [gradeForm, setGradeForm] = useState({ studentId: '', subject: '', score: '', feedback: '' });
 
   useEffect(() => {
@@ -29,24 +28,33 @@ export default function TeacherDashboard() {
     if(user) fetchMySlots();
   }, [user]);
 
-  // Ambil daftar semua siswa untuk dropdown
+  // --- FORMATTER TANGGAL KHUSUS GURU (DAY-MONTH-YEAR) ---
+  const formatDateGuru = (dateString) => {
+    return new Date(dateString).toLocaleDateString('id-ID', { 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+    });
+  };
+
   const fetchStudents = async () => {
     const { data } = await supabase
       .from('profiles')
       .select('id, full_name, email')
-      .eq('role', 'siswa'); // Pastikan hanya ambil role siswa
+      .eq('role', 'siswa');
     setStudents(data || []);
   };
 
-  // Ambil slot jadwal saya (FIXED JOIN QUERY)
   const fetchMySlots = async () => {
     setLoading(true);
+    // Menggunakan relasi student_id untuk mengambil nama siswa
     const { data, error } = await supabase
         .from('teaching_slots')
         .select(`
           *,
-          profiles:student_id ( full_name ) 
-        `) // Query ini sekarang akan berhasil setelah SQL fix
+          student:profiles!student_id ( full_name ) 
+        `) 
         .eq('teacher_id', user.id)
         .order('start_time', { ascending: true });
 
@@ -55,7 +63,6 @@ export default function TeacherDashboard() {
     setLoading(false);
   };
 
-  // BUKA JADWAL BARU
   const handleCreateSlot = async (e) => {
     e.preventDefault();
     if (!slotForm.date || !slotForm.time) return alert("Tanggal dan jam wajib diisi!");
@@ -63,8 +70,6 @@ export default function TeacherDashboard() {
     try {
         const startDateTime = new Date(`${slotForm.date}T${slotForm.time}`);
         const endDateTime = new Date(startDateTime.getTime() + slotForm.duration * 60000);
-
-        // Logic: Jika murid dipilih, status langsung 'booked'. Jika tidak, 'open'.
         const isBooked = !!slotForm.selectedStudent;
         
         const payload = {
@@ -77,11 +82,10 @@ export default function TeacherDashboard() {
         };
 
         const { error } = await supabase.from('teaching_slots').insert(payload);
-
         if (error) throw error;
         
-        alert(isBooked ? "Jadwal berhasil dibuat untuk siswa tersebut!" : "Slot jadwal dibuka (Menunggu booking siswa).");
-        setSlotForm({ ...slotForm, date: '', time: '', selectedStudent: '' }); // Reset form
+        alert(isBooked ? "Jadwal berhasil dibuat!" : "Slot jadwal dibuka (Menunggu booking siswa).");
+        setSlotForm({ ...slotForm, date: '', time: '', selectedStudent: '' });
         fetchMySlots();
 
     } catch (err) {
@@ -95,7 +99,6 @@ export default function TeacherDashboard() {
       fetchMySlots();
   };
 
-  // --- FUNGSI INPUT NILAI (Kode Lama Dipertahankan) ---
   const handleSaveGrade = async (e) => {
     e.preventDefault();
     try {
@@ -120,10 +123,9 @@ export default function TeacherDashboard() {
       
       <Tabs defaultActiveKey="jadwal" className="mb-4 border-bottom-0">
         
-        {/* TAB 1: KELOLA JADWAL (UPDATED) */}
+        {/* TAB 1: KELOLA JADWAL */}
         <Tab eventKey="jadwal" title={<><Calendar size={18} className="me-2"/>Kelola Jadwal</>}>
             <Row className="g-4">
-                {/* Form Buka Slot */}
                 <Col md={4}>
                     <Card className="shadow-sm border-0 h-100">
                         <Card.Header className="bg-primary text-white fw-bold">
@@ -152,9 +154,6 @@ export default function TeacherDashboard() {
                                             <option key={s.id} value={s.id}>{s.full_name} ({s.email})</option>
                                         ))}
                                     </Form.Select>
-                                    <Form.Text className="text-muted">
-                                        Jika dipilih, jadwal langsung terkunci untuk siswa ini.
-                                    </Form.Text>
                                 </Form.Group>
 
                                 <Form.Group className="mb-3">
@@ -199,7 +198,6 @@ export default function TeacherDashboard() {
                     </Card>
                 </Col>
 
-                {/* Tabel Daftar Jadwal */}
                 <Col md={8}>
                     <Card className="shadow-sm border-0 h-100">
                         <Card.Header className="bg-white fw-bold d-flex justify-content-between align-items-center">
@@ -210,7 +208,7 @@ export default function TeacherDashboard() {
                             <Table hover className="mb-0 align-middle">
                                 <thead className="table-light">
                                     <tr>
-                                        <th>Waktu</th>
+                                        <th>Waktu (Hari, Tanggal)</th>
                                         <th>Mapel</th>
                                         <th>Status / Siswa</th>
                                         <th>Aksi</th>
@@ -225,9 +223,10 @@ export default function TeacherDashboard() {
                                         slots.map(slot => (
                                             <tr key={slot.id}>
                                                 <td>
-                                                    <div className="fw-bold">{new Date(slot.start_time).toLocaleDateString('id-ID')}</div>
+                                                    {/* FORMAT BARU: DAY-MONTH-YEAR */}
+                                                    <div className="fw-bold">{formatDateGuru(slot.start_time)}</div>
                                                     <small className="text-muted">
-                                                        {new Date(slot.start_time).toLocaleTimeString('id-ID').slice(0,5)} - {new Date(slot.end_time).toLocaleTimeString('id-ID').slice(0,5)}
+                                                        {new Date(slot.start_time).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})} - {new Date(slot.end_time).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}
                                                     </small>
                                                 </td>
                                                 <td>{slot.subject}</td>
@@ -235,7 +234,7 @@ export default function TeacherDashboard() {
                                                     {slot.student_id ? (
                                                         <div className="d-flex align-items-center text-success">
                                                             <UserCheck size={16} className="me-1"/>
-                                                            <span className="fw-bold">{slot.profiles?.full_name || 'Murid Terhapus'}</span>
+                                                            <span className="fw-bold">{slot.student?.full_name || 'Murid'}</span>
                                                         </div>
                                                     ) : (
                                                         <Badge bg="secondary">Menunggu Booking</Badge>
@@ -311,10 +310,10 @@ export default function TeacherDashboard() {
              </Card>
         </Tab>
 
-        {/* TAB 3: UPLOAD MATERI (Simpel Saja) */}
+        {/* TAB 3: UPLOAD MATERI */}
         <Tab eventKey="materi" title={<><Upload size={18} className="me-2"/>Upload Materi</>}>
             <Card className="border-0 shadow-sm p-4 text-center">
-                <p className="text-muted">Gunakan fitur upload file di Supabase Storage secara manual atau tambahkan komponen upload di sini.</p>
+                <p className="text-muted">Gunakan fitur upload file di Supabase Storage secara manual.</p>
                 <Button variant="outline-primary" href="https://supabase.com/dashboard/project/_/storage/buckets/materials" target="_blank">
                     Buka Storage Manager
                 </Button>
