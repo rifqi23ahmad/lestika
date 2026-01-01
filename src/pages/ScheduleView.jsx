@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Card, Button, Spinner, Badge, Tab, Tabs, Alert } from 'react-bootstrap';
+import { Container, Card, Button, Spinner, Badge, Tab, Tabs, Alert, Modal } from 'react-bootstrap';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Lock, Clock, CheckCircle, PlusCircle, Calendar } from 'lucide-react';
+import { Lock, Clock, CheckCircle, PlusCircle, Calendar, HelpCircle, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function ScheduleView() {
@@ -15,11 +15,16 @@ export default function ScheduleView() {
   const [availableSlots, setAvailableSlots] = useState([]);
   const [bookingLoading, setBookingLoading] = useState(false);
 
+  // [BARU] State Modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [targetSlot, setTargetSlot] = useState(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [infoModalContent, setInfoModalContent] = useState({ title: '', msg: '', type: 'success' });
+
   useEffect(() => {
     checkPaymentAndFetchData();
   }, [user]);
 
-  // FORMATTER: HARI, TANGGAL BULAN TAHUN (Sesuai Request)
   const formatDateFull = (dateString) => {
     return new Date(dateString).toLocaleDateString('id-ID', { 
         weekday: 'long', 
@@ -32,7 +37,6 @@ export default function ScheduleView() {
   const checkPaymentAndFetchData = async () => {
     if (!user) return;
     try {
-      // 1. Cek Status Bayar
       const { data: invoiceData } = await supabase
         .from('invoices')
         .select('id')
@@ -43,7 +47,6 @@ export default function ScheduleView() {
       const paid = invoiceData && invoiceData.length > 0;
       setHasPaid(paid);
 
-      // 2. Jika Paid, Ambil Data
       if (paid) {
         await Promise.all([fetchMySchedules(), fetchAvailableSlots()]);
       }
@@ -55,7 +58,6 @@ export default function ScheduleView() {
   };
 
   const fetchMySchedules = async () => {
-    // Ambil jadwal milik siswa sendiri
     const { data } = await supabase
       .from('teaching_slots')
       .select(`*, teacher:profiles!teacher_id(full_name)`)
@@ -65,53 +67,63 @@ export default function ScheduleView() {
   };
 
   const fetchAvailableSlots = async () => {
-    // Ambil jadwal KOSONG (open & student_id null)
-    // Pastikan SQL RLS sudah dijalankan agar data ini muncul!
     const now = new Date().toISOString();
     const { data, error } = await supabase
       .from('teaching_slots')
       .select(`*, teacher:profiles!teacher_id(full_name)`)
-      .is('student_id', null)  // Filter: Belum ada murid
-      .eq('status', 'open')    // Filter: Status Open
-      .gt('start_time', now)   // Filter: Masa depan
+      .is('student_id', null)  
+      .eq('status', 'open')    
+      .gt('start_time', now)   
       .order('start_time', { ascending: true });
       
     if (error) console.error("Error fetching slots:", error);
     setAvailableSlots(data || []);
   };
 
-  const handleBookSlot = async (slotId) => {
-    if(!confirm("Apakah Anda yakin ingin mengambil jadwal ini?")) return;
+  // [UBAH] Trigger modal konfirmasi
+  const initiateBooking = (slot) => {
+    setTargetSlot(slot);
+    setShowConfirmModal(true);
+  };
+
+  // [UBAH] Eksekusi booking
+  const handleConfirmBooking = async () => {
+    if(!targetSlot) return;
     setBookingLoading(true);
+    setShowConfirmModal(false);
 
     try {
-      // Logic Booking: Update student_id ke user saat ini
       const { error } = await supabase
         .from('teaching_slots')
         .update({ 
             student_id: user.id, 
             status: 'booked' 
         })
-        .eq('id', slotId)
-        .is('student_id', null); // Pastikan slot belum diambil orang lain saat diklik
+        .eq('id', targetSlot.id)
+        .is('student_id', null); 
 
       if (error) throw error;
 
-      alert("Jadwal berhasil diambil!");
-      await Promise.all([fetchMySchedules(), fetchAvailableSlots()]); // Refresh data
+      // Sukses
+      setInfoModalContent({ title: 'Berhasil!', msg: 'Jadwal berhasil diambil.', type: 'success' });
+      setShowInfoModal(true);
+      
+      await Promise.all([fetchMySchedules(), fetchAvailableSlots()]);
 
     } catch (err) {
       console.error(err);
-      alert("Gagal mengambil jadwal. Mungkin slot sudah keduluan diambil siswa lain.");
+      // Gagal
+      setInfoModalContent({ title: 'Gagal!', msg: 'Gagal mengambil jadwal. Mungkin slot sudah keduluan diambil.', type: 'error' });
+      setShowInfoModal(true);
       fetchAvailableSlots();
     } finally {
       setBookingLoading(false);
+      setTargetSlot(null);
     }
   };
 
   if (loading) return <div className="text-center py-5"><Spinner animation="border"/></div>;
 
-  // BLOCKER JIKA BELUM BAYAR
   if (!hasPaid) {
     return (
       <Container className="py-5 text-center">
@@ -129,12 +141,11 @@ export default function ScheduleView() {
     );
   }
 
-  // TAMPILAN UTAMA (Tanpa Header Double)
   return (
     <Container className="py-4">
       <Tabs defaultActiveKey="myschedule" className="mb-4 custom-tabs">
         
-        {/* TAB 1: JADWAL SAYA */}
+        {/* TAB 1: JADWAL SAYA (Tampilan tetap sama) */}
         <Tab eventKey="myschedule" title={<><CheckCircle size={18} className="me-2"/>Jadwal Saya</>}>
             <Card className="shadow-sm border-0">
                 <Card.Body>
@@ -142,7 +153,7 @@ export default function ScheduleView() {
                         <div className="text-center py-5 text-muted">
                             <Clock size={48} className="mb-3 opacity-50"/>
                             <p>Anda belum memiliki jadwal terdaftar.</p>
-                            <Button variant="link" onClick={() => document.getElementById('schedule-tabs-tab-booking').click()}>
+                            <Button variant="link" onClick={() => document.getElementById('schedule-tabs-tab-booking')?.click()}>
                                 Cari Jadwal Baru
                             </Button>
                         </div>
@@ -222,10 +233,11 @@ export default function ScheduleView() {
                                             </div>
                                         </div>
                                         
+                                        {/* [UBAH] Panggil fungsi initiateBooking */}
                                         <Button 
                                             variant="primary" 
                                             className="w-100 mt-auto fw-bold" 
-                                            onClick={() => handleBookSlot(slot.id)} 
+                                            onClick={() => initiateBooking(slot)} 
                                             disabled={bookingLoading}
                                         >
                                             {bookingLoading ? 'Memproses...' : 'Ambil Jadwal Ini'}
@@ -238,8 +250,37 @@ export default function ScheduleView() {
                 </Card.Body>
             </Card>
         </Tab>
-
       </Tabs>
+
+      {/* [BARU] Modal Konfirmasi Booking */}
+      <Modal show={showConfirmModal} onHide={() => setShowConfirmModal(false)} centered>
+        <Modal.Body className="p-4 text-center">
+             <div className="mx-auto mb-3 p-3 bg-blue-100 rounded-full w-fit text-blue-600">
+                <HelpCircle size={32} />
+             </div>
+             <h5 className="fw-bold mb-2">Konfirmasi Jadwal</h5>
+             <p className="text-muted mb-4">
+               Apakah Anda yakin ingin mengambil jadwal <strong>{targetSlot?.subject}</strong> pada tanggal <strong>{targetSlot && formatDateFull(targetSlot.start_time)}</strong>?
+             </p>
+             <div className="d-flex justify-content-center gap-2">
+                <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>Batal</Button>
+                <Button variant="primary" onClick={handleConfirmBooking}>Ya, Ambil</Button>
+             </div>
+        </Modal.Body>
+      </Modal>
+
+      {/* [BARU] Modal Info Status */}
+      <Modal show={showInfoModal} onHide={() => setShowInfoModal(false)} centered>
+        <Modal.Body className="p-4 text-center">
+            <div className={`mx-auto mb-3 p-3 rounded-full w-fit ${infoModalContent.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                {infoModalContent.type === 'success' ? <CheckCircle size={32} /> : <XCircle size={32} />}
+            </div>
+            <h5 className="fw-bold mb-2">{infoModalContent.title}</h5>
+            <p className="text-muted">{infoModalContent.msg}</p>
+            <Button variant="outline-dark" onClick={() => setShowInfoModal(false)}>Tutup</Button>
+        </Modal.Body>
+      </Modal>
+
     </Container>
   );
 }

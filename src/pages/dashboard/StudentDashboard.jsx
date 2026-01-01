@@ -20,7 +20,7 @@ import {
   FileText,
   Download,
   TrendingUp,
-  CheckCircle,
+  RefreshCcw, // [BARU] Icon Refresh
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
@@ -29,8 +29,8 @@ export default function StudentDashboard() {
   const { user } = useAuth();
   const [activeInvoice, setActiveInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isExpired, setIsExpired] = useState(false); // [BARU] State Expired
 
-  // State untuk Materi & Nilai
   const [materials, setMaterials] = useState([]);
   const [grades, setGrades] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
@@ -60,9 +60,20 @@ export default function StudentDashboard() {
 
         setActiveInvoice(data);
 
-        // JIKA STATUS PAID, Fetch Data Materi & Nilai
         if (data && data.status === "paid") {
-          fetchAcademicData();
+          if (data.expiry_date) {
+            const now = new Date();
+            const expiry = new Date(data.expiry_date);
+
+            if (now > expiry) {
+              setIsExpired(true);
+            } else {
+              setIsExpired(false);
+              fetchAcademicData(); // Masih aktif, ambil data
+            }
+          } else {
+            fetchAcademicData();
+          }
         }
       } catch (err) {
         console.error(err);
@@ -74,18 +85,15 @@ export default function StudentDashboard() {
     fetchStatus();
   }, [user]);
 
-  // Fungsi fetch gabungan (Materi & Nilai)
   const fetchAcademicData = async () => {
     setLoadingData(true);
     try {
-      // 1. Ambil Materi
       const { data: matData } = await supabase
         .from("materials")
         .select("*")
         .order("created_at", { ascending: false });
       setMaterials(matData || []);
 
-      // 2. Ambil Nilai (Hanya milik user yang login)
       const { data: gradeData } = await supabase
         .from("grades")
         .select("*")
@@ -102,9 +110,6 @@ export default function StudentDashboard() {
   if (loading)
     return <div className="p-4 text-center">Memuat dashboard...</div>;
 
-  // --- LOGIC TAMPILAN BERDASARKAN STATUS ---
-
-  // 1. Belum Ada Paket
   if (!activeInvoice) {
     return (
       <Alert variant="warning" className="d-flex align-items-center p-4">
@@ -120,7 +125,40 @@ export default function StudentDashboard() {
     );
   }
 
-  // 2. Belum Bayar
+  if (isExpired) {
+    return (
+      <Alert variant="danger" className="text-center p-5 shadow-sm">
+        <div className="mx-auto mb-3 p-3 bg-red-100 rounded-circle d-inline-block text-danger">
+          <RefreshCcw size={48} />
+        </div>
+        <h3 className="fw-bold text-danger">Masa Aktif Paket Berakhir</h3>
+        <p className="text-muted mb-4 fs-5">
+          Paket <strong>{activeInvoice.package_name}</strong> Anda telah
+          berakhir pada tanggal <br />
+          <strong>
+            {new Date(activeInvoice.expiry_date).toLocaleDateString("id-ID", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </strong>
+          .
+        </p>
+        <div className="d-flex justify-content-center gap-3">
+          <Button
+            href="/#pricing"
+            variant="primary"
+            size="lg"
+            className="px-5 rounded-pill fw-bold"
+          >
+            Perpanjang / Beli Paket Baru
+          </Button>
+        </div>
+      </Alert>
+    );
+  }
+
   if (activeInvoice.status === "unpaid") {
     return (
       <Alert variant="danger" className="text-center p-5">
@@ -143,7 +181,6 @@ export default function StudentDashboard() {
     );
   }
 
-  // 3. Menunggu Konfirmasi
   if (activeInvoice.status === "waiting_confirmation") {
     return (
       <Alert variant="info" className="text-center p-5">
@@ -163,10 +200,8 @@ export default function StudentDashboard() {
     );
   }
 
-  // 4. Status PAID (Aktif) -> Tampilkan Dashboard Lengkap
   return (
     <Row className="g-4">
-      {/* Header Status */}
       <Col xs={12}>
         <Card className="bg-success text-white shadow border-0 overflow-hidden">
           <Card.Body className="p-4 d-flex justify-content-between align-items-center">
@@ -175,14 +210,26 @@ export default function StudentDashboard() {
                 Paket Aktif
               </Badge>
               <h2 className="fw-bold">{activeInvoice.package_name}</h2>
-              <p className="mb-0 opacity-75">Selamat belajar, {user.name}!</p>
+              <div className="d-flex align-items-center gap-2 mt-2">
+                <Clock size={16} />
+                <span className="small">
+                  Berlaku hingga:{" "}
+                  <strong>
+                    {activeInvoice.expiry_date
+                      ? new Date(activeInvoice.expiry_date).toLocaleDateString(
+                          "id-ID"
+                        )
+                      : "Selamanya"}
+                  </strong>
+                </span>
+              </div>
             </div>
             <Award size={64} className="opacity-50 text-white" />
           </Card.Body>
         </Card>
       </Col>
 
-      {/* Tab Navigasi: Materi & Nilai */}
+      {/* ... (SISA KODE SAMA: Tabs Materi & Nilai) ... */}
       <Col md={12}>
         <Card className="shadow-sm border-0">
           <Card.Body>
@@ -192,7 +239,6 @@ export default function StudentDashboard() {
               className="mb-4"
               fill
             >
-              {/* TAB 1: MATERI */}
               <Tab
                 eventKey="materi"
                 title={
@@ -249,7 +295,6 @@ export default function StudentDashboard() {
                 )}
               </Tab>
 
-              {/* TAB 2: NILAI (Fitur Baru Opsi B) */}
               <Tab
                 eventKey="nilai"
                 title={
@@ -277,7 +322,7 @@ export default function StudentDashboard() {
                         <tr>
                           <th>Mata Pelajaran</th>
                           <th className="text-center">Nilai</th>
-                          <th>Feedback / Catatan</th>
+                          <th>Feedback</th>
                           <th>Tanggal</th>
                         </tr>
                       </thead>

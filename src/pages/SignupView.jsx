@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Container, Card, Form, Button, Alert, InputGroup } from 'react-bootstrap';
-import { User, Lock, Mail, Eye, EyeOff, Phone } from 'lucide-react';
+import { Container, Card, Form, Button, Alert, InputGroup, Modal } from 'react-bootstrap';
+import { User, Lock, Mail, Eye, EyeOff, Phone, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -16,6 +16,9 @@ export default function SignupView() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // [BARU] State Modal Sukses
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleChange = (e) => setFormData({...formData, [e.target.name]: e.target.value});
 
@@ -35,14 +38,20 @@ export default function SignupView() {
         whatsapp: formData.whatsapp
       });
 
-      alert("Pendaftaran berhasil! Silakan login.");
-      navigate('/login');
+      // [UBAH] Ganti alert dengan Modal Sukses
+      setShowSuccessModal(true);
 
     } catch (error) {
       setErrorMsg(error.message || "Gagal mendaftar.");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handler tutup modal -> redirect ke login
+  const handleCloseModal = () => {
+    setShowSuccessModal(false);
+    navigate('/login');
   };
 
   return (
@@ -126,6 +135,21 @@ export default function SignupView() {
           </div>
         </Card.Body>
       </Card>
+
+      {/* [BARU] Modal Sukses Pendaftaran */}
+      <Modal show={showSuccessModal} onHide={handleCloseModal} centered backdrop="static">
+        <Modal.Body className="text-center p-4">
+          <div className="mx-auto mb-3 p-3 bg-green-100 rounded-full w-fit text-green-600">
+             <CheckCircle size={40} />
+          </div>
+          <h4 className="fw-bold mb-2">Pendaftaran Berhasil!</h4>
+          <p className="text-muted mb-4">Akun Anda telah dibuat. Silakan login untuk melanjutkan.</p>
+          <Button variant="success" onClick={handleCloseModal} className="w-100">
+            Lanjut ke Login
+          </Button>
+        </Modal.Body>
+      </Modal>
+
     </Container>
   );
 }
