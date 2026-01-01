@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext'; 
 import { APP_CONFIG } from './config/constants'; // Import Config
-
+import PackageManager from './components/admin/PackageManager';
 import AppNavbar from './components/layout/Navbar'; 
 import Footer from './components/layout/Footer';
 import GlobalLoadingHandler from './components/layout/GlobalLoadingHandler'; // Asumsi component loading dipisah/inline
@@ -34,6 +34,7 @@ export default function App() {
               <Route path="/" element={<HomeView />} />
               <Route path="/login" element={<LoginView />} />
               <Route path="/signup" element={<SignupView />} /> 
+              <Route path="/admin/paket" element={<PackageManager />} />
               
               <Route 
                 path="/register" 

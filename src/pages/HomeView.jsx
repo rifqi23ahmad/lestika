@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Button, Card, Spinner } from 'react-bootstrap';
 import { Users, BookOpen, Award, CheckCircle, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // PENTING: Import useNavigate
+import { useNavigate } from 'react-router-dom'; 
 import { packageService } from '../services/packageService';
 import { useAuth } from '../context/AuthContext';
+import { formatRupiah } from '../utils/format'; 
 
 export default function HomeView() {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const navigate = useNavigate(); // Hook untuk navigasi
+  const navigate = useNavigate(); 
 
   useEffect(() => {
     const fetchPackages = async () => {
@@ -27,7 +28,6 @@ export default function HomeView() {
 
   const handlePackageClick = (pkg) => {
     if (user) {
-      // KIRIM DATA PAKET KE HALAMAN REGISTER
       navigate('/register', { state: { pkg: pkg } });
     } else {
       alert("Silakan buat akun atau login terlebih dahulu untuk mendaftar.");
@@ -104,37 +104,46 @@ export default function HomeView() {
             <div className="text-center py-5"><Spinner animation="border" variant="primary" /></div>
           ) : (
             <Row className="g-4 justify-content-center">
-              {packages.map((pkg) => (
-                <Col md={6} lg={4} key={pkg.id}>
-                  <Card className="h-100 border-0 shadow-sm hover-top transition overflow-hidden">
-                    <div className={`h-1 w-100 ${pkg.color || 'bg-primary'}`} style={{ height: '6px' }}></div>
-                    <Card.Body className="d-flex flex-column p-4">
-                      <div className="text-center mb-4">
-                         <h3 className="fw-bold mb-1">{pkg.title}</h3>
-                         <h2 className="text-primary fw-bold display-6">
-                           {pkg.price_display || `Rp ${pkg.price.toLocaleString('id-ID')}`}
-                           <span className="fs-6 text-muted fw-normal ms-1">/bln</span>
-                         </h2>
-                      </div>
-                      <ul className="list-unstyled mb-4 flex-grow-1 px-3">
-                        {(pkg.features || []).map((feature, idx) => (
-                          <li key={idx} className="mb-3 d-flex align-items-start">
-                            <CheckCircle size={20} className="text-success me-3 mt-1 flex-shrink-0" />
-                            <span className="text-secondary fw-medium">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      <Button 
-                        variant={user ? "success" : "primary"}
-                        className="w-100 py-3 fw-bold rounded-pill shadow mt-auto"
-                        onClick={() => handlePackageClick(pkg)}
-                      >
-                        {user ? "Pilih Paket" : "Daftar Sekarang"} <ArrowRight size={18} className="ms-2" />
-                      </Button>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              ))}
+              {packages.map((pkg) => {
+                const featuresList = Array.isArray(pkg.features) 
+                  ? pkg.features 
+                  : (pkg.features || '').split(',').map(f => f.trim()).filter(f => f);
+
+                return (
+                  <Col md={6} lg={4} key={pkg.id}>
+                    <Card className="h-100 border-0 shadow-sm hover-top transition overflow-hidden">
+                      <div className={`h-1 w-100 ${pkg.color || 'bg-primary'}`} style={{ height: '6px' }}></div>
+                      <Card.Body className="d-flex flex-column p-4">
+                        <div className="text-center mb-4">
+                           <h3 className="fw-bold mb-1">{pkg.title}</h3>
+                           
+                           {/* PERBAIKAN UTAMA: Gunakan formatRupiah dengan pkg.price (Angka) */}
+                           <h2 className="text-primary fw-bold display-6">
+                             {formatRupiah(pkg.price)}
+                             <span className="fs-6 text-muted fw-normal ms-1">/bln</span>
+                           </h2>
+
+                        </div>
+                        <ul className="list-unstyled mb-4 flex-grow-1 px-3">
+                          {featuresList.map((feature, idx) => (
+                            <li key={idx} className="mb-3 d-flex align-items-start">
+                              <CheckCircle size={20} className="text-success me-3 mt-1 flex-shrink-0" />
+                              <span className="text-secondary fw-medium">{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <Button 
+                          variant={user ? "success" : "primary"}
+                          className="w-100 py-3 fw-bold rounded-pill shadow mt-auto"
+                          onClick={() => handlePackageClick(pkg)}
+                        >
+                          {user ? "Pilih Paket" : "Daftar Sekarang"} <ArrowRight size={18} className="ms-2" />
+                        </Button>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                );
+              })}
             </Row>
           )}
         </Container>

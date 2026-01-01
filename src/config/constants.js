@@ -1,6 +1,6 @@
 export const APP_CONFIG = {
   FEES: {
-    ADMIN: 15000,
+    ADMIN: 10000,
   },
   INVOICE: {
     PREFIX: 'INV',
