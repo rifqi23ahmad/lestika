@@ -5,25 +5,23 @@ import {
   Card,
   Button,
   Form,
-  Table,
   Badge,
   Tab,
   Tabs,
   Modal,
   Spinner,
+  Accordion,
+  ToggleButton,
 } from "react-bootstrap";
 import {
   Upload,
   UserCheck,
   Calendar,
   Trash2,
-  UserPlus,
   CheckCircle,
   AlertTriangle,
-  FileText,
-  Layers,
   Clock,
-  MonitorPlay,
+  Repeat,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
@@ -35,9 +33,8 @@ export default function TeacherDashboard() {
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [slotForm, setSlotForm] = useState({
-    startDate: "",
-    endDate: "",
+  const [scheduleForm, setScheduleForm] = useState({
+    selectedDays: [], // Array index hari (1=Senin, 0=Minggu, dst)
     startTime: "",
     endTime: "",
     subject: "Matematika",
@@ -66,32 +63,32 @@ export default function TeacherDashboard() {
   });
   const [deleteModal, setDeleteModal] = useState({ show: false, id: null });
 
+  const daysOrder = [
+    "Senin",
+    "Selasa",
+    "Rabu",
+    "Kamis",
+    "Jumat",
+    "Sabtu",
+    "Minggu",
+  ];
+  const daysMap = [
+    { name: "Minggu", value: 0 },
+    { name: "Senin", value: 1 },
+    { name: "Selasa", value: 2 },
+    { name: "Rabu", value: 3 },
+    { name: "Kamis", value: 4 },
+    { name: "Jumat", value: 5 },
+    { name: "Sabtu", value: 6 },
+  ];
+
   useEffect(() => {
     fetchStudents();
     if (user) fetchMySlots();
   }, [user]);
 
-  const isToday = (dateString) => {
-    const d = new Date(dateString);
-    const today = new Date();
-    return (
-      d.getDate() === today.getDate() &&
-      d.getMonth() === today.getMonth() &&
-      d.getFullYear() === today.getFullYear()
-    );
-  };
-
   const showModal = (title, msg, type = "info") => {
     setModalData({ show: true, title, msg, type });
-  };
-
-  const formatDateGuru = (dateString) => {
-    return new Date(dateString).toLocaleDateString("id-ID", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
   };
 
   const fetchStudents = async () => {
@@ -115,17 +112,37 @@ export default function TeacherDashboard() {
     setLoading(false);
   };
 
-  const handleCreateBulkSlots = async (e) => {
+  const handleDayToggle = (dayValue) => {
+    const currentDays = scheduleForm.selectedDays;
+    if (currentDays.includes(dayValue)) {
+      setScheduleForm({
+        ...scheduleForm,
+        selectedDays: currentDays.filter((d) => d !== dayValue),
+      });
+    } else {
+      setScheduleForm({
+        ...scheduleForm,
+        selectedDays: [...currentDays, dayValue],
+      });
+    }
+  };
+
+  const getNextDayDate = (dayIndex) => {
+    const d = new Date();
+    d.setDate(d.getDate() + ((dayIndex + 7 - d.getDay()) % 7));
+    return d;
+  };
+
+  const handleCreateRoutineSlots = async (e) => {
     e.preventDefault();
     if (
-      !slotForm.startDate ||
-      !slotForm.endDate ||
-      !slotForm.startTime ||
-      !slotForm.endTime
+      scheduleForm.selectedDays.length === 0 ||
+      !scheduleForm.startTime ||
+      !scheduleForm.endTime
     ) {
       return showModal(
         "Validasi Gagal",
-        "Mohon lengkapi rentang tanggal dan jam!",
+        "Pilih minimal satu hari, jam mulai, dan jam selesai.",
         "error"
       );
     }
@@ -133,29 +150,29 @@ export default function TeacherDashboard() {
     setCreatingSlots(true);
     try {
       const slotsToInsert = [];
-      let currentDate = new Date(slotForm.startDate);
-      const lastDate = new Date(slotForm.endDate);
 
-      while (currentDate <= lastDate) {
-        let timeCursor = new Date(currentDate);
-        const [startH, startM] = slotForm.startTime.split(":").map(Number);
+      for (const dayIndex of scheduleForm.selectedDays) {
+        const anchorDate = getNextDayDate(dayIndex);
+
+        let timeCursor = new Date(anchorDate);
+        const [startH, startM] = scheduleForm.startTime.split(":").map(Number);
         timeCursor.setHours(startH, startM, 0, 0);
 
-        let dayEndTime = new Date(currentDate);
-        const [endH, endM] = slotForm.endTime.split(":").map(Number);
+        let dayEndTime = new Date(anchorDate);
+        const [endH, endM] = scheduleForm.endTime.split(":").map(Number);
         dayEndTime.setHours(endH, endM, 0, 0);
 
         while (timeCursor < dayEndTime) {
           const slotStart = new Date(timeCursor);
           const slotEnd = new Date(
-            timeCursor.getTime() + slotForm.duration * 60000
+            timeCursor.getTime() + scheduleForm.duration * 60000
           );
 
           if (slotEnd > dayEndTime) break;
 
           slotsToInsert.push({
             teacher_id: user.id,
-            subject: slotForm.subject,
+            subject: scheduleForm.subject,
             start_time: slotStart.toISOString(),
             end_time: slotEnd.toISOString(),
             status: "open",
@@ -163,13 +180,11 @@ export default function TeacherDashboard() {
           });
           timeCursor = slotEnd;
         }
-        currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      if (slotsToInsert.length === 0)
-        throw new Error(
-          "Tidak ada slot yang bisa dibuat dalam rentang waktu tersebut."
-        );
+      if (slotsToInsert.length === 0) {
+        throw new Error("Gagal membuat slot. Periksa jam mulai dan selesai.");
+      }
 
       const { error } = await supabase
         .from("teaching_slots")
@@ -178,15 +193,13 @@ export default function TeacherDashboard() {
 
       showModal(
         "Berhasil!",
-        `Berhasil membuat ${slotsToInsert.length} slot jadwal baru.`,
+        `Berhasil menambahkan ${slotsToInsert.length} slot rutinitas baru.`,
         "success"
       );
-      setSlotForm({
-        ...slotForm,
-        startDate: "",
-        endDate: "",
-        startTime: "",
-        endTime: "",
+
+      setScheduleForm({
+        ...scheduleForm,
+        selectedDays: [],
       });
       fetchMySlots();
     } catch (err) {
@@ -205,6 +218,23 @@ export default function TeacherDashboard() {
     fetchMySlots();
     showModal("Terhapus", "Slot jadwal berhasil dihapus.", "success");
   };
+
+  const groupSlotsByDay = () => {
+    const grouped = {};
+    daysOrder.forEach((day) => (grouped[day] = []));
+
+    slots.forEach((slot) => {
+      const date = new Date(slot.start_time);
+      const dayName = date.toLocaleDateString("id-ID", { weekday: "long" });
+      if (grouped[dayName]) {
+        grouped[dayName].push(slot);
+      }
+    });
+
+    return grouped;
+  };
+
+  const groupedSlots = groupSlotsByDay();
 
   const handleSaveGrade = async (e) => {
     e.preventDefault();
@@ -261,187 +291,85 @@ export default function TeacherDashboard() {
     }
   };
 
-  const todayClasses = slots.filter(
-    (slot) => isToday(slot.start_time) && slot.student_id
-  );
-
   return (
     <div className="pb-5">
-      <Tabs defaultActiveKey="today" className="mb-4 border-bottom-0">
-        {/* [BARU] TAB 1: JADWAL SAYA HARI INI */}
-        <Tab
-          eventKey="today"
-          title={
-            <>
-              <MonitorPlay size={18} className="me-2" />
-              Jadwal Saya
-            </>
-          }
-        >
-          <Row>
-            <Col md={12}>
-              <div className="d-flex align-items-center mb-3">
-                <h4 className="fw-bold mb-0 me-2 text-primary">
-                  Kelas Hari Ini
-                </h4>
-                <Badge bg="info" pill>
-                  {new Date().toLocaleDateString("id-ID", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                  })}
-                </Badge>
-              </div>
-            </Col>
-
-            {todayClasses.length === 0 ? (
-              <Col md={12}>
-                <Card className="shadow-sm border-0 py-5 text-center bg-light">
-                  <div className="mx-auto text-muted mb-3 opacity-50">
-                    <CheckCircle size={48} />
-                  </div>
-                  <h5>Tidak ada kelas hari ini.</h5>
-                  <p className="text-muted">
-                    Nikmati waktu istirahat Anda, atau cek tab "Kelola Jadwal"
-                    untuk hari lain.
-                  </p>
-                </Card>
-              </Col>
-            ) : (
-              todayClasses.map((slot) => (
-                <Col md={4} key={slot.id} className="mb-4">
-                  <Card className="shadow-sm border-0 h-100 border-start border-4 border-primary">
-                    <Card.Body>
-                      <div className="d-flex justify-content-between align-items-start mb-3">
-                        <Badge bg="primary" className="py-2 px-3 fs-6">
-                          {new Date(slot.start_time).toLocaleTimeString(
-                            "id-ID",
-                            { hour: "2-digit", minute: "2-digit" }
-                          )}
-                          {" - "}
-                          {new Date(slot.end_time).toLocaleTimeString("id-ID", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </Badge>
-                        <Badge bg="light" text="dark" className="border">
-                          {slot.subject}
-                        </Badge>
-                      </div>
-                      <h5 className="fw-bold mb-1">
-                        {slot.student?.full_name}
-                      </h5>
-                      <p className="text-muted small mb-3">Siswa</p>
-
-                      <div className="d-grid">
-                        <Button
-                          variant="outline-primary"
-                          size="sm"
-                          onClick={() => {
-                            showModal(
-                              "Info Kelas",
-                              `Kelas ${slot.subject} dengan ${
-                                slot.student?.full_name
-                              } dimulai jam ${new Date(
-                                slot.start_time
-                              ).toLocaleTimeString("id-ID")}`,
-                              "info"
-                            );
-                          }}
-                        >
-                          Detail Kelas
-                        </Button>
-                      </div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              ))
-            )}
-          </Row>
-        </Tab>
-
-        {/* TAB 2: KELOLA JADWAL MASSAL */}
+      <Tabs defaultActiveKey="jadwal" className="mb-4 border-bottom-0">
+        {/* TAB 1: KELOLA JADWAL (RUTINITAS) */}
         <Tab
           eventKey="jadwal"
           title={
             <>
               <Calendar size={18} className="me-2" />
-              Kelola Jadwal
+              Kelola Jadwal Rutin
             </>
           }
         >
           <Row className="g-4">
+            {/* INPUT FORM */}
             <Col md={5}>
               <Card className="shadow-sm border-0 h-100">
                 <Card.Header className="bg-primary text-white fw-bold d-flex align-items-center">
-                  <Layers size={18} className="me-2" /> Generator Jadwal (Bulk)
+                  <Repeat size={18} className="me-2" /> Buat Slot Rutin
                 </Card.Header>
                 <Card.Body>
-                  <Form onSubmit={handleCreateBulkSlots}>
+                  <Form onSubmit={handleCreateRoutineSlots}>
                     <AlertTriangle
                       size={16}
                       className="text-warning mb-2 me-1"
                     />
                     <small className="text-muted d-block mb-3">
-                      Fitur ini akan membuat banyak slot sekaligus berdasarkan
-                      rentang tanggal dan jam kerja yang Anda atur.
+                      Slot ini akan berlaku mingguan. Pilih hari dan jam
+                      ketersediaan Anda.
                     </small>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label className="fw-bold">Pilih Hari</Form.Label>
+                      <div className="d-flex flex-wrap gap-2">
+                        {daysMap.map((day) => (
+                          <ToggleButton
+                            key={day.value}
+                            id={`check-day-${day.value}`}
+                            type="checkbox"
+                            variant="outline-primary"
+                            checked={scheduleForm.selectedDays.includes(
+                              day.value
+                            )}
+                            value={day.value}
+                            onChange={() => handleDayToggle(day.value)}
+                            size="sm"
+                            className="rounded-pill px-3"
+                          >
+                            {day.name}
+                          </ToggleButton>
+                        ))}
+                      </div>
+                    </Form.Group>
+
                     <Form.Group className="mb-3">
                       <Form.Label>Mata Pelajaran</Form.Label>
                       <Form.Control
                         type="text"
-                        value={slotForm.subject}
+                        value={scheduleForm.subject}
                         onChange={(e) =>
-                          setSlotForm({ ...slotForm, subject: e.target.value })
+                          setScheduleForm({
+                            ...scheduleForm,
+                            subject: e.target.value,
+                          })
                         }
                         required
                       />
                     </Form.Group>
+
                     <Row>
                       <Col xs={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>Dari Tanggal</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={slotForm.startDate}
-                            onChange={(e) =>
-                              setSlotForm({
-                                ...slotForm,
-                                startDate: e.target.value,
-                              })
-                            }
-                            required
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col xs={6}>
-                        <Form.Group className="mb-3">
-                          <Form.Label>Sampai Tanggal</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={slotForm.endDate}
-                            onChange={(e) =>
-                              setSlotForm({
-                                ...slotForm,
-                                endDate: e.target.value,
-                              })
-                            }
-                            required
-                          />
-                        </Form.Group>
-                      </Col>
-                    </Row>
-                    <hr className="my-2" />
-                    <Row>
-                      <Col xs={6}>
-                        <Form.Group className="mb-3">
-                          <Form.Label>Jam Mulai (Harian)</Form.Label>
+                          <Form.Label>Jam Mulai</Form.Label>
                           <Form.Control
                             type="time"
-                            value={slotForm.startTime}
+                            value={scheduleForm.startTime}
                             onChange={(e) =>
-                              setSlotForm({
-                                ...slotForm,
+                              setScheduleForm({
+                                ...scheduleForm,
                                 startTime: e.target.value,
                               })
                             }
@@ -451,13 +379,13 @@ export default function TeacherDashboard() {
                       </Col>
                       <Col xs={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>Jam Selesai (Harian)</Form.Label>
+                          <Form.Label>Jam Selesai</Form.Label>
                           <Form.Control
                             type="time"
-                            value={slotForm.endTime}
+                            value={scheduleForm.endTime}
                             onChange={(e) =>
-                              setSlotForm({
-                                ...slotForm,
+                              setScheduleForm({
+                                ...scheduleForm,
                                 endTime: e.target.value,
                               })
                             }
@@ -466,17 +394,22 @@ export default function TeacherDashboard() {
                         </Form.Group>
                       </Col>
                     </Row>
+
                     <Form.Group className="mb-4">
-                      <Form.Label>Durasi Per Sesi (Menit)</Form.Label>
+                      <Form.Label>Durasi (Menit)</Form.Label>
                       <Form.Control
                         type="number"
-                        value={slotForm.duration}
+                        value={scheduleForm.duration}
                         onChange={(e) =>
-                          setSlotForm({ ...slotForm, duration: e.target.value })
+                          setScheduleForm({
+                            ...scheduleForm,
+                            duration: e.target.value,
+                          })
                         }
                         required
                       />
                     </Form.Group>
+
                     <Button
                       type="submit"
                       className="w-100 fw-bold"
@@ -486,7 +419,7 @@ export default function TeacherDashboard() {
                       {creatingSlots ? (
                         <Spinner size="sm" animation="border" />
                       ) : (
-                        "Buat Semua Slot Kosong"
+                        "Tambahkan ke Jadwal"
                       )}
                     </Button>
                   </Form>
@@ -494,10 +427,11 @@ export default function TeacherDashboard() {
               </Card>
             </Col>
 
+            {/* LIST JADWAL (GROUPED BY DAY) */}
             <Col md={7}>
-              <Card className="shadow-sm border-0 h-100">
+              <Card className="shadow-sm border-0 h-100 bg-light">
                 <Card.Header className="bg-white fw-bold d-flex justify-content-between align-items-center">
-                  <span>Daftar Slot Anda</span>
+                  <span>Daftar Slot Rutin</span>
                   <Button
                     variant="outline-secondary"
                     size="sm"
@@ -506,86 +440,116 @@ export default function TeacherDashboard() {
                     Refresh
                   </Button>
                 </Card.Header>
-                <div className="table-responsive">
-                  <Table hover className="mb-0 align-middle">
-                    <thead className="table-light">
-                      <tr>
-                        <th>Waktu</th>
-                        <th>Mapel</th>
-                        <th>Status</th>
-                        <th>Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loading ? (
-                        <tr>
-                          <td colSpan={4} className="text-center p-4">
-                            Memuat data...
-                          </td>
-                        </tr>
-                      ) : slots.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={4}
-                            className="text-center p-4 text-muted"
+                <Card.Body
+                  className="p-2 overflow-auto"
+                  style={{ maxHeight: "600px" }}
+                >
+                  {loading ? (
+                    <div className="text-center p-5">
+                      <Spinner animation="border" />
+                    </div>
+                  ) : slots.length === 0 ? (
+                    <div className="text-center p-5 text-muted">
+                      Belum ada jadwal rutin.
+                    </div>
+                  ) : (
+                    <Accordion defaultActiveKey={["Senin"]}>
+                      {daysOrder.map((dayName, idx) => {
+                        const daySlots = groupedSlots[dayName];
+                        if (!daySlots || daySlots.length === 0) return null;
+
+                        return (
+                          <Accordion.Item
+                            eventKey={dayName}
+                            key={idx}
+                            className="mb-2 border-0 shadow-sm rounded"
                           >
-                            Belum ada jadwal.
-                          </td>
-                        </tr>
-                      ) : (
-                        slots.map((slot) => (
-                          <tr key={slot.id}>
-                            <td>
-                              <div className="fw-bold">
-                                {formatDateGuru(slot.start_time)}
-                              </div>
-                              <small className="text-muted">
-                                {new Date(slot.start_time).toLocaleTimeString(
-                                  "id-ID",
-                                  { hour: "2-digit", minute: "2-digit" }
-                                )}{" "}
-                                -{" "}
-                                {new Date(slot.end_time).toLocaleTimeString(
-                                  "id-ID",
-                                  { hour: "2-digit", minute: "2-digit" }
-                                )}
-                              </small>
-                            </td>
-                            <td>{slot.subject}</td>
-                            <td>
-                              {slot.student_id ? (
+                            <Accordion.Header>
+                              <div className="d-flex justify-content-between w-100 me-3">
+                                <span className="fw-bold text-primary">
+                                  {dayName}
+                                </span>
                                 <Badge
-                                  bg="success"
-                                  className="d-flex align-items-center w-fit"
+                                  bg="light"
+                                  text="dark"
+                                  className="border"
                                 >
-                                  <UserCheck size={12} className="me-1" />{" "}
-                                  {slot.student?.full_name}
+                                  {daySlots.length} Sesi
                                 </Badge>
-                              ) : (
-                                <Badge bg="secondary">Kosong</Badge>
-                              )}
-                            </td>
-                            <td>
-                              <Button
-                                variant="outline-danger"
-                                size="sm"
-                                onClick={() => confirmDelete(slot.id)}
-                              >
-                                <Trash2 size={14} />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </Table>
-                </div>
+                              </div>
+                            </Accordion.Header>
+                            <Accordion.Body className="bg-white p-0">
+                              {daySlots.map((slot) => (
+                                <div
+                                  key={slot.id}
+                                  className="d-flex justify-content-between align-items-center p-3 border-bottom"
+                                >
+                                  <div className="d-flex align-items-center gap-3">
+                                    <div
+                                      className="text-center bg-light rounded p-2"
+                                      style={{ minWidth: "80px" }}
+                                    >
+                                      <div className="fw-bold text-dark">
+                                        {new Date(
+                                          slot.start_time
+                                        ).toLocaleTimeString("id-ID", {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                      </div>
+                                      <div className="small text-muted">
+                                        -{" "}
+                                        {new Date(
+                                          slot.end_time
+                                        ).toLocaleTimeString("id-ID", {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="fw-bold">
+                                        {slot.subject}
+                                      </div>
+                                      {slot.student_id ? (
+                                        <div className="text-success small fw-bold d-flex align-items-center">
+                                          <UserCheck
+                                            size={14}
+                                            className="me-1"
+                                          />{" "}
+                                          {slot.student?.full_name}
+                                        </div>
+                                      ) : (
+                                        <div className="text-muted small fst-italic">
+                                          Masih Kosong
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <Button
+                                    variant="outline-danger"
+                                    size="sm"
+                                    className="border-0"
+                                    onClick={() => confirmDelete(slot.id)}
+                                  >
+                                    <Trash2 size={16} />
+                                  </Button>
+                                </div>
+                              ))}
+                            </Accordion.Body>
+                          </Accordion.Item>
+                        );
+                      })}
+                    </Accordion>
+                  )}
+                </Card.Body>
               </Card>
             </Col>
           </Row>
         </Tab>
 
-        {/* TAB 3: INPUT NILAI */}
+        {/* TAB 2: INPUT NILAI */}
         <Tab
           eventKey="nilai"
           title={
@@ -662,7 +626,7 @@ export default function TeacherDashboard() {
           </Card>
         </Tab>
 
-        {/* TAB 4: UPLOAD MATERI */}
+        {/* TAB 3: UPLOAD MATERI */}
         <Tab
           eventKey="materi"
           title={
