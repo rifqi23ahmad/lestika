@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
   const getBasicUser = (authUser) => ({
     id: authUser.id,
     email: authUser.email,
-    role: "siswa", 
+    role: "siswa",
     name: authUser.user_metadata?.name || authUser.email,
     isPartial: true,
   });
@@ -96,7 +96,7 @@ export const AuthProvider = ({ children }) => {
           event === "TOKEN_REFRESH_REVOKED"
         ) {
           setUser(null);
-          setLoading(false); 
+          setLoading(false);
         }
       }
     );
@@ -117,6 +117,10 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("Logout error", error);
     } finally {
+      localStorage.clear();
+
+      sessionStorage.clear();
+
       setUser(null);
       setLoading(false);
     }
