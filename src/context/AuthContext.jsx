@@ -11,21 +11,22 @@ export const AuthProvider = ({ children }) => {
   const getBasicUser = (authUser) => ({
     id: authUser.id,
     email: authUser.email,
-    role: "siswa",
+    role: "siswa", 
     name: authUser.user_metadata?.name || authUser.email,
     isPartial: true,
   });
 
-  const getEnrichedUser = async (authUser) => {
-    if (!authUser) return null;
+  const fetchProfileAndSetUser = async (authUser) => {
     try {
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", authUser.id)
         .single();
 
-      return {
+      if (error) throw error;
+
+      const fullUser = {
         id: authUser.id,
         email: authUser.email,
         role: profile?.role || "siswa",
@@ -36,9 +37,13 @@ export const AuthProvider = ({ children }) => {
         whatsapp: profile?.whatsapp,
         isPartial: false,
       };
+
+      setUser(fullUser);
     } catch (err) {
-      console.warn("Profile load failed, using basic:", err);
-      return getBasicUser(authUser);
+      console.warn("Gagal mengambil profil, menggunakan data dasar:", err);
+      setUser((prev) =>
+        prev ? { ...prev, isPartial: true } : getBasicUser(authUser)
+      );
     }
   };
 
@@ -61,13 +66,15 @@ export const AuthProvider = ({ children }) => {
 
         const sessionData = await authService.getSession();
 
-        if (sessionData && mounted) {
-          setUser(getBasicUser(sessionData)); // UI Instant Load
-          getEnrichedUser(sessionData).then((fullUser) => {
-            if (mounted) setUser(fullUser);
-          });
+        if (sessionData?.user && mounted) {
+          setUser(getBasicUser(sessionData.user));
+
+          await fetchProfileAndSetUser(sessionData.user);
+        } else {
+          if (mounted) setUser(null);
         }
       } catch (error) {
+        console.error("Session check failed:", error);
         if (mounted) setUser(null);
       } finally {
         if (mounted) setLoading(false);
@@ -79,13 +86,17 @@ export const AuthProvider = ({ children }) => {
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
+
         if (event === "SIGNED_IN" && session?.user) {
           setUser(getBasicUser(session.user));
-          getEnrichedUser(session.user).then((fullUser) => {
-            if (mounted) setUser(fullUser);
-          });
-        } else if (event === "SIGNED_OUT") {
+          await fetchProfileAndSetUser(session.user);
+          setLoading(false);
+        } else if (
+          event === "SIGNED_OUT" ||
+          event === "TOKEN_REFRESH_REVOKED"
+        ) {
           setUser(null);
+          setLoading(false); 
         }
       }
     );
@@ -99,9 +110,16 @@ export const AuthProvider = ({ children }) => {
   const login = (email, password) => authService.login(email, password);
   const register = (email, password, name, detailData) =>
     authService.register(email, password, name, detailData);
+
   const logout = async () => {
-    await authService.logout();
-    setUser(null);
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error("Logout error", error);
+    } finally {
+      setUser(null);
+      setLoading(false);
+    }
   };
 
   return (

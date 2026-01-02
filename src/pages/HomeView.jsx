@@ -5,10 +5,14 @@ import { useNavigate } from "react-router-dom";
 import { packageService } from "../services/packageService";
 import { useAuth } from "../context/AuthContext";
 import { formatRupiah } from "../utils/format";
+import { InfoModal } from "../components/admin/modals/DashboardModals";
 
 export default function HomeView() {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -30,9 +34,13 @@ export default function HomeView() {
     if (user) {
       navigate("/register", { state: { pkg: pkg } });
     } else {
-      alert("Silakan buat akun atau login terlebih dahulu untuk mendaftar.");
-      navigate("/login");
+      setShowAuthModal(true);
     }
+  };
+
+  const handleCloseModal = () => {
+    setShowAuthModal(false);
+    navigate("/login");
   };
 
   return (
@@ -165,7 +173,6 @@ export default function HomeView() {
                         <div className="text-center mb-4">
                           <h3 className="fw-bold mb-1">{pkg.title}</h3>
 
-                          {/* PERBAIKAN UTAMA: Gunakan formatRupiah dengan pkg.price (Angka) */}
                           <h2 className="text-primary fw-bold display-6">
                             {formatRupiah(pkg.price)}
                             <span className="fs-6 text-muted fw-normal ms-1">
@@ -206,6 +213,15 @@ export default function HomeView() {
           )}
         </Container>
       </div>
+
+      {/* MODAL GLOBAL */}
+      <InfoModal
+        show={showAuthModal}
+        onClose={handleCloseModal}
+        title="Akses Dibatasi"
+        msg="Silakan buat akun atau login terlebih dahulu untuk mendaftar paket ini."
+        type="warning"
+      />
     </>
   );
 }

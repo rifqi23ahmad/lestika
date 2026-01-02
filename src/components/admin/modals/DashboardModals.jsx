@@ -2,8 +2,15 @@ import React from "react";
 import { Modal, Button } from "react-bootstrap";
 import { HelpCircle, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 
-// Perhatikan "export const" di sini (JANGAN "export default")
-export const ConfirmModal = ({ show, title, msg, variant, onCancel, onConfirm, loading }) => {
+export const ConfirmModal = ({
+  show,
+  title,
+  msg,
+  variant,
+  onCancel,
+  onConfirm,
+  loading,
+}) => {
   return (
     <Modal show={show} onHide={onCancel} centered>
       <Modal.Body className="p-4 text-center">
@@ -29,7 +36,6 @@ export const ConfirmModal = ({ show, title, msg, variant, onCancel, onConfirm, l
   );
 };
 
-// Perhatikan "export const" di sini juga
 export const InfoModal = ({ show, title, msg, type, onClose }) => {
   return (
     <Modal show={show} onHide={onClose} centered>

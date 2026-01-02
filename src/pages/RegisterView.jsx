@@ -138,10 +138,10 @@ export default function RegisterView() {
                 <Card.Body>
                   <div className="d-flex align-items-center mb-2">
                     <CreditCard className="me-2 text-primary" />{" "}
-                    <strong>BCA</strong>
+                    <strong>BTN</strong>
                   </div>
-                  <div className="h4 fw-bold mb-0 text-dark">123 456 7890</div>
-                  <small>a.n. PT BIMBEL MAPA</small>
+                  <div className="h4 fw-bold mb-0 text-dark">016301500279103</div>
+                  <small>a.n Rahmatika Rizqiantari</small>
                 </Card.Body>
               </Card>
               <Form onSubmit={handleProcess}>
