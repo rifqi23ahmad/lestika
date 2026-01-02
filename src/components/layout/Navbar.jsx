@@ -16,7 +16,6 @@ export default function AppNavbar() {
   return (
     <Navbar bg="white" expand="lg" className="shadow-sm sticky-top py-3">
       <Container>
-        {/* LOGO */}
         <Navbar.Brand
           href="#"
           onClick={(e) => {
@@ -26,7 +25,7 @@ export default function AppNavbar() {
           className="d-flex align-items-center fw-bold text-primary fs-4"
         >
           <img
-            src="/logo.png"
+            src="/logo.png" // Pastikan file logo.png ada di folder public
             alt="Logo MAPA"
             width="32"
             height="32"
@@ -53,7 +52,6 @@ export default function AppNavbar() {
               Beranda
             </Nav.Link>
 
-            {/* [UBAH] MENU JADWAL (Hanya muncul jika login DAN role adalah siswa) */}
             {user && user.role === "siswa" && (
               <Nav.Link
                 href="#"
@@ -80,14 +78,15 @@ export default function AppNavbar() {
 
                 <Dropdown.Menu className="shadow-sm border-0 mt-2">
                   <Dropdown.Item
-                    onClick={() => navigate("/dashboard")}
+                    onClick={() => {
+                      navigate("/dashboard");
+                    }}
                     className="d-flex align-items-center py-2"
                   >
                     <LayoutDashboard size={16} className="me-2 text-muted" />{" "}
                     Dashboard
                   </Dropdown.Item>
 
-                  {/* [UBAH] TAGIHAN SAYA (Hanya muncul jika role adalah siswa) */}
                   {user.role === "siswa" && (
                     <Dropdown.Item
                       onClick={() => navigate("/invoice")}

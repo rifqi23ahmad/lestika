@@ -154,7 +154,7 @@ export default function SignupView() {
                 </InputGroup.Text>
                 <Form.Control
                   name="name"
-                  placeholder="Nama Lengkap (Huruf Saja)"
+                  placeholder="Nama Lengkap"
                   required
                   onChange={handleChange}
                   onKeyDown={preventNonLetters}

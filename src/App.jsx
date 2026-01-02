@@ -16,6 +16,8 @@ import StudentDashboard from "./pages/dashboard/StudentDashboard";
 import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
 
+import WhatsAppBubble from "./components/layout/WhatsAppBubble";
+
 export default function App() {
   const { loading } = useAuth();
 
@@ -108,6 +110,8 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
+
+      <WhatsAppBubble />
     </div>
   );
 }

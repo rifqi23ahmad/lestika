@@ -10,7 +10,7 @@ import {
 } from "../../components/admin/modals/DashboardModals";
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("paket"); // 'paket' | 'guru' | 'invoice'
+  const [activeTab, setActiveTab] = useState("paket"); 
   const [invoiceCount, setInvoiceCount] = useState(0);
 
   // State untuk Modals (Lifted Up State)

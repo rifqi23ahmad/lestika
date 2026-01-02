@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import { authService } from "../services/authService";
 import { supabase } from "../lib/supabase";
 
@@ -8,10 +14,12 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const lastUserId = useRef(null);
+
   const getBasicUser = (authUser) => ({
     id: authUser.id,
     email: authUser.email,
-    role: "siswa",
+    role: authUser.user_metadata?.role || "siswa",
     name: authUser.user_metadata?.name || authUser.email,
     isPartial: true,
   });
@@ -29,7 +37,7 @@ export const AuthProvider = ({ children }) => {
       const fullUser = {
         id: authUser.id,
         email: authUser.email,
-        role: profile?.role || "siswa",
+        role: profile?.role || authUser.user_metadata?.role || "siswa",
         name:
           profile?.full_name || authUser.user_metadata?.name || authUser.email,
         jenjang: profile?.jenjang,
@@ -39,6 +47,7 @@ export const AuthProvider = ({ children }) => {
       };
 
       setUser(fullUser);
+      lastUserId.current = authUser.id; // Simpan ID user yang sudah di-load
     } catch (err) {
       console.warn("Gagal mengambil profil, menggunakan data dasar:", err);
       setUser((prev) =>
@@ -52,7 +61,7 @@ export const AuthProvider = ({ children }) => {
 
     const initSession = async () => {
       try {
-        const hasLocalToken = Object.keys(localStorage).some(
+        const hasLocalToken = Object.keys(sessionStorage).some(
           (key) => key.startsWith("sb-") && key.endsWith("-auth-token")
         );
 
@@ -60,6 +69,7 @@ export const AuthProvider = ({ children }) => {
           if (mounted) {
             setUser(null);
             setLoading(false);
+            lastUserId.current = null;
           }
           return;
         }
@@ -67,15 +77,22 @@ export const AuthProvider = ({ children }) => {
         const sessionData = await authService.getSession();
 
         if (sessionData?.user && mounted) {
-          setUser(getBasicUser(sessionData.user));
-
-          await fetchProfileAndSetUser(sessionData.user);
+          if (lastUserId.current !== sessionData.user.id) {
+            setUser(getBasicUser(sessionData.user));
+            await fetchProfileAndSetUser(sessionData.user);
+          }
         } else {
-          if (mounted) setUser(null);
+          if (mounted) {
+            setUser(null);
+            lastUserId.current = null;
+          }
         }
       } catch (error) {
         console.error("Session check failed:", error);
-        if (mounted) setUser(null);
+        if (mounted) {
+          setUser(null);
+          lastUserId.current = null;
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -87,15 +104,20 @@ export const AuthProvider = ({ children }) => {
       async (event, session) => {
         if (!mounted) return;
 
-        if (event === "SIGNED_IN" && session?.user) {
-          setUser(getBasicUser(session.user));
-          await fetchProfileAndSetUser(session.user);
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          if (session?.user) {
+            if (lastUserId.current === session.user.id) {
+              setLoading(false);
+              return;
+            }
+
+            setUser(getBasicUser(session.user));
+            await fetchProfileAndSetUser(session.user);
+          }
           setLoading(false);
-        } else if (
-          event === "SIGNED_OUT" ||
-          event === "TOKEN_REFRESH_REVOKED"
-        ) {
+        } else if (event === "SIGNED_OUT" || event === "USER_DELETED") {
           setUser(null);
+          lastUserId.current = null;
           setLoading(false);
         }
       }
@@ -118,10 +140,9 @@ export const AuthProvider = ({ children }) => {
       console.error("Logout error", error);
     } finally {
       localStorage.clear();
-
       sessionStorage.clear();
-
       setUser(null);
+      lastUserId.current = null;
       setLoading(false);
     }
   };

@@ -69,8 +69,8 @@ export default function HomeView() {
             className="lead mb-5 mx-auto opacity-75"
             style={{ maxWidth: "700px" }}
           >
-            Bimbingan Belajar Privat dan Group Matematika SD, SMP, SMA dan IPA
-            untuk SMP, SMA
+            Bimbingan Belajar Privat dan Group Matematika SD SMP SMA dan IPA
+            untuk SMP SMA
           </p>
           <div className="d-flex justify-content-center gap-3">
             <Button
@@ -111,7 +111,7 @@ export default function HomeView() {
             {
               icon: Users,
               title: "Tutor Profesional",
-              desc: "Lulusan PTN ternama berpengalaman.",
+              desc: "Lulusan Sarjana Pendidikan Matematika dengan Pengalaman lebih dari 10 tahun.",
             },
             {
               icon: BookOpen,
