@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useRef,
-} from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { authService } from "../services/authService";
 import { supabase } from "../lib/supabase";
 
@@ -14,137 +8,119 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const lastUserId = useRef(null);
+  const formatUser = (sessionUser, profile = null) => {
+    const rawRole =
+      profile?.role ||
+      sessionUser.user_metadata?.role ||
+      sessionUser.app_metadata?.role;
 
-  const getBasicUser = (authUser) => ({
-    id: authUser.id,
-    email: authUser.email,
-    role: authUser.user_metadata?.role || "siswa",
-    name: authUser.user_metadata?.name || authUser.email,
-    isPartial: true,
-  });
+    const rawName =
+      profile?.full_name || 
+      sessionUser.user_metadata?.full_name || 
+      sessionUser.user_metadata?.name || 
+      sessionUser.email; 
 
-  const fetchProfileAndSetUser = async (authUser) => {
+    return {
+      id: sessionUser.id,
+      email: sessionUser.email,
+      role: rawRole ? rawRole.toLowerCase() : "siswa",
+      name: rawName, 
+      jenjang: profile?.jenjang,
+      kelas: profile?.kelas,
+      whatsapp: profile?.whatsapp,
+    };
+  };
+
+  const getProfile = async (userId) => {
     try {
-      const { data: profile, error } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", authUser.id)
+        .eq("id", userId)
         .single();
 
-      if (error) throw error;
-
-      const fullUser = {
-        id: authUser.id,
-        email: authUser.email,
-        role: profile?.role || authUser.user_metadata?.role || "siswa",
-        name:
-          profile?.full_name || authUser.user_metadata?.name || authUser.email,
-        jenjang: profile?.jenjang,
-        kelas: profile?.kelas,
-        whatsapp: profile?.whatsapp,
-        isPartial: false,
-      };
-
-      setUser(fullUser);
-      lastUserId.current = authUser.id; // Simpan ID user yang sudah di-load
+      if (error && error.code !== "PGRST116")
+        console.warn("Profile fetch error:", error);
+      return data;
     } catch (err) {
-      console.warn("Gagal mengambil profil, menggunakan data dasar:", err);
-      setUser((prev) =>
-        prev ? { ...prev, isPartial: true } : getBasicUser(authUser)
-      );
+      return null;
     }
   };
 
   useEffect(() => {
     let mounted = true;
 
-    const initSession = async () => {
+    const initializeAuth = async () => {
       try {
-        const hasLocalToken = Object.keys(sessionStorage).some(
-          (key) => key.startsWith("sb-") && key.endsWith("-auth-token")
-        );
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-        if (!hasLocalToken) {
-          if (mounted) {
-            setUser(null);
-            setLoading(false);
-            lastUserId.current = null;
-          }
-          return;
-        }
+        if (session?.user) {
+          if (mounted) setUser(formatUser(session.user));
 
-        const sessionData = await authService.getSession();
-
-        if (sessionData?.user && mounted) {
-          if (lastUserId.current !== sessionData.user.id) {
-            setUser(getBasicUser(sessionData.user));
-            await fetchProfileAndSetUser(sessionData.user);
+          const profile = await getProfile(session.user.id);
+          if (mounted && profile) {
+            setUser(formatUser(session.user, profile));
           }
         } else {
-          if (mounted) {
-            setUser(null);
-            lastUserId.current = null;
-          }
+          if (mounted) setUser(null);
         }
       } catch (error) {
-        console.error("Session check failed:", error);
-        if (mounted) {
-          setUser(null);
-          lastUserId.current = null;
-        }
+        console.error("Auth init error:", error);
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
-    initSession();
+    initializeAuth();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
 
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          if (session?.user) {
-            if (lastUserId.current === session.user.id) {
-              setLoading(false);
-              return;
-            }
-
-            setUser(getBasicUser(session.user));
-            await fetchProfileAndSetUser(session.user);
-          }
-          setLoading(false);
-        } else if (event === "SIGNED_OUT" || event === "USER_DELETED") {
-          setUser(null);
-          lastUserId.current = null;
-          setLoading(false);
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        if (session?.user) {
+          setUser((prev) => {
+            if (event === "TOKEN_REFRESHED") return formatUser(session.user);
+            return prev || formatUser(session.user);
+          });
         }
+      } else if (event === "SIGNED_OUT") {
+        setUser(null);
+        sessionStorage.clear();
+        localStorage.clear();
       }
-    );
+    });
 
     return () => {
       mounted = false;
-      listener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
-  const login = (email, password) => authService.login(email, password);
+  const login = async (email, password) => {
+    const data = await authService.login(email, password);
+
+    if (data.user) {
+      const profile = await getProfile(data.user.id);
+
+      const fixedUser = formatUser(data.user, profile);
+      setUser(fixedUser);
+    }
+
+    return data;
+  };
+
   const register = (email, password, name, detailData) =>
     authService.register(email, password, name, detailData);
 
   const logout = async () => {
-    try {
-      await authService.logout();
-    } catch (error) {
-      console.error("Logout error", error);
-    } finally {
-      localStorage.clear();
-      sessionStorage.clear();
-      setUser(null);
-      lastUserId.current = null;
-      setLoading(false);
-    }
+    await authService.logout();
+    localStorage.clear();
+    sessionStorage.clear();
+    setUser(null);
   };
 
   return (
