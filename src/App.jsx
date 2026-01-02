@@ -1,26 +1,23 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "./context/AuthContext"; // Hapus AuthProvider dari import
+import { useAuth } from "./context/AuthContext";
 import { APP_CONFIG } from "./config/constants";
-
-import PackageManager from "./components/admin/PackageManager";
 import AppNavbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-
 import HomeView from "./pages/HomeView";
 import LoginView from "./pages/LoginView";
 import SignupView from "./pages/SignupView";
 import RegisterView from "./pages/RegisterView";
 import InvoiceView from "./pages/InvoiceView";
 import ScheduleView from "./pages/ScheduleView";
-
+import DashboardManager from "./pages/dashboard/DashboardManager";
 import StudentDashboard from "./pages/dashboard/StudentDashboard";
 import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
-import DashboardManager from "./pages/dashboard/DashboardManager";
+import AdminDashboard from "./pages/dashboard/AdminDashboard";
 
 export default function App() {
-  const { loading } = useAuth(); // Langsung ambil status loading
+  const { loading } = useAuth();
 
   if (loading) {
     return (
@@ -37,12 +34,10 @@ export default function App() {
       <AppNavbar />
       <main className="flex-grow-1">
         <Routes>
-          {/* === Public Routes === */}
           <Route path="/" element={<HomeView />} />
           <Route path="/login" element={<LoginView />} />
           <Route path="/signup" element={<SignupView />} />
 
-          {/* === Protected Routes === */}
           <Route
             path="/register"
             element={
@@ -60,7 +55,6 @@ export default function App() {
             }
           />
 
-          {/* === DASHBOARD === */}
           <Route
             path="/dashboard"
             element={
@@ -69,6 +63,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/student/dashboard"
             element={
@@ -89,12 +84,11 @@ export default function App() {
             path="/admin/dashboard"
             element={
               <ProtectedRoute allowedRoles={[APP_CONFIG.ROLES.ADMIN]}>
-                <PackageManager />
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />
 
-          {/* === JADWAL === */}
           <Route
             path="/jadwal"
             element={
@@ -110,16 +104,6 @@ export default function App() {
             }
           />
 
-          <Route
-            path="/admin/paket"
-            element={
-              <ProtectedRoute allowedRoles={[APP_CONFIG.ROLES.ADMIN]}>
-                <PackageManager />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
