@@ -9,7 +9,6 @@ export default function WhatsAppBubble() {
     message: "",
   });
 
-  // Nomor tujuan
   const phoneNumber = "6288211058777";
 
   const handleInputChange = (e) => {
@@ -20,18 +19,14 @@ export default function WhatsAppBubble() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Format pesan: "Halo, nama saya [Nama]. [Pesan]"
     const text = `Halo, nama saya ${formData.name}. ${formData.message}`;
-    
-    // Buat URL WhatsApp
+
     const whatsappLink = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(
       text
     )}`;
 
-    // Buka WhatsApp di tab baru
     window.open(whatsappLink, "_blank");
-    
-    // Reset form dan tutup (opsional)
+
     setFormData({ name: "", message: "" });
     setIsOpen(false);
   };
@@ -44,7 +39,7 @@ export default function WhatsAppBubble() {
       zIndex: 9999,
       display: "flex",
       flexDirection: "column",
-      alignItems: "flex-end", // Agar rata kanan
+      alignItems: "flex-end",
     },
     bubble: {
       backgroundColor: "#25D366",
@@ -66,10 +61,10 @@ export default function WhatsAppBubble() {
       border: "none",
       borderRadius: "12px",
       overflow: "hidden",
-      animation: "fadeIn 0.3s ease-out", // Efek muncul halus
+      animation: "fadeIn 0.3s ease-out", 
     },
     header: {
-      backgroundColor: "#075e54", // Warna khas WhatsApp Dark
+      backgroundColor: "#075e54", 
       color: "white",
       padding: "15px",
       display: "flex",
@@ -80,7 +75,6 @@ export default function WhatsAppBubble() {
 
   return (
     <div style={styles.container}>
-      {/* 1. FORM POPUP (Hanya muncul jika isOpen = true) */}
       {isOpen && (
         <Card style={styles.chatBox}>
           <div style={styles.header}>
@@ -90,11 +84,13 @@ export default function WhatsAppBubble() {
             </div>
             <CloseButton variant="white" onClick={() => setIsOpen(false)} />
           </div>
-          
+
           <Card.Body className="bg-white">
             <Form onSubmit={handleSubmit}>
               <Form.Group className="mb-3" controlId="formName">
-                <Form.Label className="small text-muted fw-bold">Nama Anda</Form.Label>
+                <Form.Label className="small text-muted fw-bold">
+                  Nama Anda
+                </Form.Label>
                 <Form.Control
                   type="text"
                   placeholder="Contoh: Budi"
@@ -108,7 +104,9 @@ export default function WhatsAppBubble() {
               </Form.Group>
 
               <Form.Group className="mb-3" controlId="formMessage">
-                <Form.Label className="small text-muted fw-bold">Pesan</Form.Label>
+                <Form.Label className="small text-muted fw-bold">
+                  Pesan
+                </Form.Label>
                 <Form.Control
                   as="textarea"
                   rows={3}
@@ -134,20 +132,17 @@ export default function WhatsAppBubble() {
         </Card>
       )}
 
-      {/* 2. TOMBOL BUBBLE UTAMA */}
       <div
         style={{
           ...styles.bubble,
-          transform: isOpen ? "rotate(45deg)" : "rotate(0deg)", // Efek putar saat diklik
+          transform: isOpen ? "rotate(45deg)" : "rotate(0deg)", 
         }}
         onClick={() => setIsOpen(!isOpen)}
         title="Chat WhatsApp"
       >
         {isOpen ? (
-          // Ikon X (Close) dari Lucide saat terbuka
           <CloseButton variant="white" style={{ fontSize: "1.2rem" }} />
         ) : (
-          // Ikon WhatsApp SVG saat tertutup
           <svg
             viewBox="0 0 32 32"
             width="32"
