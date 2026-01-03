@@ -15,8 +15,8 @@ import { useNavigate } from "react-router-dom";
 import { packageService } from "../services/packageService";
 import { useAuth } from "../context/AuthContext";
 import { formatRupiah } from "../utils/format";
-import { InfoModal } from "../components/admin/modals/DashboardModals";
 import { supabase } from "../lib/supabase";
+import StatusModal from "../components/common/StatusModal";
 
 export default function HomeView() {
   const [packages, setPackages] = useState([]);
@@ -426,12 +426,14 @@ export default function HomeView() {
         </Container>
       </div>
 
-      <InfoModal
+      <StatusModal
         show={showAuthModal}
-        onClose={handleCloseModal}
+        onHide={handleCloseModal} 
         title="Akses Dibatasi"
-        msg="Silakan buat akun atau login terlebih dahulu untuk mendaftar paket ini."
+        message="Silakan buat akun atau login terlebih dahulu untuk mendaftar paket ini." 
         type="warning"
+        actionLabel="Login Sekarang"
+        onAction={handleCloseModal}
       />
     </>
   );

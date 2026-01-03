@@ -11,19 +11,14 @@ import {
   Spinner,
   Row,
   Col,
-  Modal,
 } from "react-bootstrap";
 import {
   Download,
   Upload,
-  CheckCircle,
   Clock,
-  AlertCircle,
   ArrowLeft,
   FileText,
   Search,
-  Check,
-  X,
   MapPin,
   Globe,
 } from "lucide-react";
@@ -33,6 +28,8 @@ import { APP_CONFIG } from "../config/constants";
 import { invoiceService } from "../services/invoiceService";
 import { useAuth } from "../context/AuthContext";
 import { formatRupiah } from "../utils/format";
+
+import StatusModal from "../components/common/StatusModal";
 
 export default function InvoiceView() {
   const { user } = useAuth();
@@ -52,8 +49,8 @@ export default function InvoiceView() {
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const [showModal, setShowModal] = useState(false);
-  const [modalState, setModalState] = useState({
+  const [statusModal, setStatusModal] = useState({
+    show: false,
     title: "",
     message: "",
     type: "success",
@@ -80,9 +77,8 @@ export default function InvoiceView() {
     }
   };
 
-  const showAlertModal = (title, message, type = "success") => {
-    setModalState({ title, message, type });
-    setShowModal(true);
+  const showStatus = (title, message, type = "success") => {
+    setStatusModal({ show: true, title, message, type });
   };
 
   const getStatusBadge = (status) => {
@@ -121,14 +117,14 @@ export default function InvoiceView() {
       );
       setInvoice(updatedInvoice);
       fetchHistory();
-      showAlertModal(
+      showStatus(
         "Upload Berhasil!",
         "Bukti pembayaran telah dikirim dan sedang diverifikasi.",
         "success"
       );
       setFile(null);
     } catch (error) {
-      showAlertModal("Upload Gagal", error.message, "error");
+      showStatus("Upload Gagal", error.message, "error");
     } finally {
       setLoading(false);
     }
@@ -138,19 +134,40 @@ export default function InvoiceView() {
     const element = printRef.current;
     if (!element) return;
     setDownloading(true);
+
     try {
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL("image/png");
+      const canvas = await html2canvas(element, {
+        scale: 1.5,
+        useCORS: true,
+        logging: false,
+      });
+
+      const imgWidth = 210; // Lebar A4 (mm)
+      const pageHeight = 297; // Tinggi A4 (mm)
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.7);
 
       const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(
+        imgData,
+        "JPEG",
+        0,
+        0,
+        imgWidth,
+        imgHeight,
+        undefined,
+        "FAST"
+      );
       pdf.save(`Invoice-${invoice.invoice_no}.pdf`);
     } catch (error) {
       console.error("Gagal download PDF:", error);
-      showAlertModal("Error", "Terjadi kesalahan saat mengunduh PDF.", "error");
+      showStatus(
+        "Gagal Download",
+        "Terjadi kesalahan saat mengunduh PDF.",
+        "error"
+      );
     } finally {
       setDownloading(false);
     }
@@ -267,7 +284,8 @@ export default function InvoiceView() {
           <div
             ref={printRef}
             className="bg-white p-5 shadow-sm border position-relative"
-            style={{ minHeight: "297mm", position: "relative" }} // A4 feel
+            style={{ minHeight: "297mm", backgroundColor: "#ffffff" }}
+            id="invoice-print-area"
           >
             <div className="d-flex justify-content-between align-items-start border-bottom pb-4 mb-4">
               <div>
@@ -489,33 +507,13 @@ export default function InvoiceView() {
         {viewMode === "list" ? renderList() : renderDetail()}
       </Container>
 
-      <Modal show={showModal} onHide={() => setShowModal(false)} centered>
-        <Modal.Body className="text-center p-4">
-          <div
-            className={`mx-auto mb-3 p-3 rounded-circle d-inline-flex align-items-center justify-content-center ${
-              modalState.type === "success"
-                ? "bg-success bg-opacity-10 text-success"
-                : "bg-danger bg-opacity-10 text-danger"
-            }`}
-            style={{ width: "64px", height: "64px" }}
-          >
-            {modalState.type === "success" ? (
-              <Check size={32} />
-            ) : (
-              <X size={32} />
-            )}
-          </div>
-          <h5 className="fw-bold mb-2">{modalState.title}</h5>
-          <p className="text-muted mb-4">{modalState.message}</p>
-          <Button
-            variant={modalState.type === "success" ? "success" : "danger"}
-            onClick={() => setShowModal(false)}
-            className="px-4 py-2 rounded-pill"
-          >
-            Tutup
-          </Button>
-        </Modal.Body>
-      </Modal>
+      <StatusModal
+        show={statusModal.show}
+        onHide={() => setStatusModal({ ...statusModal, show: false })}
+        title={statusModal.title}
+        message={statusModal.message}
+        type={statusModal.type}
+      />
     </Container>
   );
 }

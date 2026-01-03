@@ -1,22 +1,15 @@
 import React, { useState } from "react";
-import {
-  Container,
-  Card,
-  Form,
-  Button,
-  Alert,
-  InputGroup,
-} from "react-bootstrap";
-import { Lock, Mail, Eye, EyeOff } from "lucide-react";
+import { Container, Card, Form, Button, Alert } from "react-bootstrap";
+import { Lock, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import FormInput from "../components/common/FormInput";
 
 export default function LoginView() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({ email: "", password: "" });
-  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -60,41 +53,24 @@ export default function LoginView() {
           )}
 
           <Form onSubmit={handleSubmit}>
-            <Form.Group className="mb-3">
-              <InputGroup>
-                <InputGroup.Text className="bg-white">
-                  <Mail size={18} />
-                </InputGroup.Text>
-                <Form.Control
-                  name="email"
-                  type="email"
-                  placeholder="Email"
-                  required
-                  onChange={handleChange}
-                />
-              </InputGroup>
-            </Form.Group>
+            <FormInput
+              icon={Mail}
+              name="email"
+              type="email"
+              placeholder="Email"
+              required
+              onChange={handleChange}
+            />
 
-            <Form.Group className="mb-4">
-              <InputGroup>
-                <InputGroup.Text className="bg-white">
-                  <Lock size={18} />
-                </InputGroup.Text>
-                <Form.Control
-                  name="password"
-                  type={showPass ? "text" : "password"}
-                  placeholder="Password"
-                  required
-                  onChange={handleChange}
-                />
-                <Button
-                  variant="outline-secondary"
-                  onClick={() => setShowPass(!showPass)}
-                >
-                  {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                </Button>
-              </InputGroup>
-            </Form.Group>
+            <FormInput
+              icon={Lock}
+              name="password"
+              type="password"
+              placeholder="Password"
+              required
+              onChange={handleChange}
+              className="mb-4"
+            />
 
             <Button
               variant="primary"
