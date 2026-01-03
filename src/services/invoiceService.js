@@ -12,6 +12,16 @@ export const invoiceService = {
     };
   },
 
+  async getAll() {
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
   async create(user, selectedPackage) {
     const { adminFee, total } = this.calculateTotal(selectedPackage.price);
     const invoiceNo = `${APP_CONFIG.INVOICE.PREFIX}-${Date.now()}`;
@@ -19,7 +29,7 @@ export const invoiceService = {
     const payload = {
       invoice_no: invoiceNo,
       user_id: user.id,
-      email: user.email, // [BARU] Tambahkan Email
+      email: user.email,
       student_name: user.name,
       student_jenjang: user.jenjang || "-",
       student_kelas: user.kelas || "-",

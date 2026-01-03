@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { Row, Col } from "react-bootstrap";
+import { TrendingUp } from "lucide-react";
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import AdminPackagePanel from "../../components/admin/panels/AdminPackagePanel";
 import AdminUserPanel from "../../components/admin/panels/AdminUserPanel";
 import AdminInvoicePanel from "../../components/admin/panels/AdminInvoicePanel";
-import StatusModal from "../../components/common/StatusModal";
+import AdminRevenuePanel from "../../components/admin/panels/AdminRevenuePanel"; 
 import ConfirmModal from "../../components/common/ConfirmModal";
+import StatusModal from "../../components/common/StatusModal";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("paket");
@@ -14,21 +16,21 @@ export default function AdminDashboard() {
   const [statusModal, setStatusModal] = useState({
     show: false,
     title: "",
-    msg: "", 
+    msg: "",
     type: "success",
   });
 
   const [confirmModal, setConfirmModal] = useState({
     show: false,
     title: "",
-    msg: "", 
+    msg: "",
     variant: "primary",
     actionCallback: null,
   });
 
   const [loadingAction, setLoadingAction] = useState(false);
 
-  const showInfo = (title, msg, type = "success") => {
+  const showStatus = (title, msg, type = "success") => {
     setStatusModal({ show: true, title, msg, type });
   };
 
@@ -53,7 +55,7 @@ export default function AdminDashboard() {
       try {
         await confirmModal.actionCallback();
       } catch (error) {
-        showInfo(
+        showStatus(
           "Gagal",
           error.message || "Terjadi kesalahan sistem.",
           "error"
@@ -79,16 +81,16 @@ export default function AdminDashboard() {
 
       <Col lg={9}>
         {activeTab === "paket" && (
-          <AdminPackagePanel showInfo={showInfo} showConfirm={showConfirm} />
+          <AdminPackagePanel showInfo={showStatus} showConfirm={showConfirm} />
         )}
 
         {activeTab === "guru" && (
-          <AdminUserPanel showInfo={showInfo} showConfirm={showConfirm} />
+          <AdminUserPanel showInfo={showStatus} showConfirm={showConfirm} />
         )}
 
         {activeTab === "invoice" && (
           <AdminInvoicePanel
-            showInfo={showInfo}
+            showInfo={showStatus}
             showConfirm={showConfirm}
             onInvoiceUpdate={(data) =>
               setInvoiceCount(
@@ -97,24 +99,26 @@ export default function AdminDashboard() {
             }
           />
         )}
+
+        {activeTab === "laporan" && <AdminRevenuePanel />}
       </Col>
 
       <ConfirmModal
         show={confirmModal.show}
         title={confirmModal.title}
-        message={confirmModal.msg} 
+        message={confirmModal.msg}
         variant={confirmModal.variant}
         loading={loadingAction}
-        onCancel={() => setConfirmModal({ ...confirmModal, show: false })}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, show: false }))}
         onConfirm={handleExecuteConfirm}
       />
 
       <StatusModal
         show={statusModal.show}
         title={statusModal.title}
-        message={statusModal.msg} 
+        message={statusModal.msg}
         type={statusModal.type}
-        onHide={() => setStatusModal({ ...statusModal, show: false })}
+        onHide={() => setStatusModal((prev) => ({ ...prev, show: false }))}
       />
     </Row>
   );

@@ -170,7 +170,7 @@ export default function HomeView() {
                 className="fw-bold px-5 rounded-pill"
                 onClick={() => navigate("/login")}
               >
-                Masuk Siswa
+                Masuk
               </Button>
             )}
           </div>

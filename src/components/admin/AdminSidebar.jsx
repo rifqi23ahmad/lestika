@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, Button, Badge } from "react-bootstrap";
-import { Package, Users, FileText } from "lucide-react";
+import { Package, Users, FileText, TrendingUp } from "lucide-react"; // [BARU] Tambah icon TrendingUp
 
 export default function AdminSidebar({
   activeTab,
@@ -39,6 +39,14 @@ export default function AdminSidebar({
                 {invoiceCount}
               </Badge>
             )}
+          </Button>
+
+          <Button
+            variant={activeTab === "laporan" ? "primary" : "light"}
+            className="text-start d-flex align-items-center"
+            onClick={() => setActiveTab("laporan")}
+          >
+            <TrendingUp size={18} className="me-2" /> Laporan Pendapatan
           </Button>
         </div>
       </Card.Body>
