@@ -1,60 +1,34 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  Container,
-  Card,
-  Badge,
-  Button,
-  Form,
-  Alert,
-  Table,
-  Spinner,
-  Row,
-  Col,
-} from "react-bootstrap";
-import {
-  Download,
-  Upload,
-  Clock,
-  ArrowLeft,
-  FileText,
-  Search,
-  MapPin,
-  Globe,
-} from "lucide-react";
+import { Container, Button, Form, Row, Col, Spinner } from "react-bootstrap";
+import { Download, Upload, ArrowLeft } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { APP_CONFIG } from "../config/constants";
 import { invoiceService } from "../services/invoiceService";
 import { useAuth } from "../context/AuthContext";
-import { formatRupiah } from "../utils/format";
-
+import InvoicePaper from "../components/invoice/InvoicePaper";
+import InvoicePreviewWrapper from "../components/invoice/InvoicePreviewWrapper";
+import InvoiceList from "../components/invoice/InvoiceList";
 import StatusModal from "../components/common/StatusModal";
 
 export default function InvoiceView() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  
   const printRef = useRef();
 
-  const [viewMode, setViewMode] = useState(
-    location.state?.invoice ? "detail" : "list"
-  );
-
+  const [viewMode, setViewMode] = useState(location.state?.invoice ? "detail" : "list");
   const [invoice, setInvoice] = useState(location.state?.invoice || null);
   const [history, setHistory] = useState([]);
   const [fetching, setFetching] = useState(false);
-
+  
   const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingUpload, setLoadingUpload] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const [statusModal, setStatusModal] = useState({
-    show: false,
-    title: "",
-    message: "",
-    type: "success",
-  });
+  const [statusModal, setStatusModal] = useState({ show: false, title: "", message: "", type: "success" });
 
   useEffect(() => {
     if (user) fetchHistory();
@@ -65,13 +39,12 @@ export default function InvoiceView() {
     try {
       const data = await invoiceService.getHistory(user.id);
       setHistory(data || []);
-
       if (invoice) {
         const updated = data.find((i) => i.id === invoice.id);
         if (updated) setInvoice(updated);
       }
     } catch (err) {
-      console.error("Gagal load history:", err);
+      console.error(err);
     } finally {
       setFetching(false);
     }
@@ -81,52 +54,20 @@ export default function InvoiceView() {
     setStatusModal({ show: true, title, message, type });
   };
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case APP_CONFIG.INVOICE.STATUS.PAID:
-        return (
-          <Badge bg="success" className="px-3 py-2 fw-normal">
-            LUNAS
-          </Badge>
-        );
-      case APP_CONFIG.INVOICE.STATUS.WAITING:
-        return (
-          <Badge bg="warning" text="dark" className="px-3 py-2 fw-normal">
-            MENUNGGU VERIFIKASI
-          </Badge>
-        );
-      default:
-        return (
-          <Badge bg="danger" className="px-3 py-2 fw-normal">
-            BELUM DIBAYAR
-          </Badge>
-        );
-    }
-  };
-
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!file) return;
-    setLoading(true);
-
+    setLoadingUpload(true);
     try {
-      const updatedInvoice = await invoiceService.processPaymentConfirmation(
-        invoice.id,
-        user.id,
-        file
-      );
+      const updatedInvoice = await invoiceService.processPaymentConfirmation(invoice.id, user.id, file);
       setInvoice(updatedInvoice);
       fetchHistory();
-      showStatus(
-        "Upload Berhasil!",
-        "Bukti pembayaran telah dikirim dan sedang diverifikasi.",
-        "success"
-      );
+      showStatus("Upload Berhasil", "Bukti pembayaran telah dikirim.", "success");
       setFile(null);
     } catch (error) {
       showStatus("Upload Gagal", error.message, "error");
     } finally {
-      setLoading(false);
+      setLoadingUpload(false);
     }
   };
 
@@ -136,375 +77,100 @@ export default function InvoiceView() {
     setDownloading(true);
 
     try {
-      const canvas = await html2canvas(element, {
-        scale: 1.5,
-        useCORS: true,
-        logging: false,
+      const clone = element.cloneNode(true);
+      
+      Object.assign(clone.style, {
+        transform: "none",     
+        position: "absolute",
+        top: "-10000px",       
+        left: "-10000px",
+        width: "800px",        
+        height: "auto",
+        margin: "0",
+        padding: "48px"         
       });
 
-      const imgWidth = 210; // Lebar A4 (mm)
-      const pageHeight = 297; // Tinggi A4 (mm)
+      document.body.appendChild(clone);
+
+      const canvas = await html2canvas(clone, {
+        scale: 2,              
+        useCORS: true,
+        logging: false,
+        windowWidth: 1000      
+      });
+
+      document.body.removeChild(clone);
+
+      const imgWidth = 210; 
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      const imgData = canvas.toDataURL("image/jpeg", 0.7);
-
       const pdf = new jsPDF("p", "mm", "a4");
+      const imgData = canvas.toDataURL("image/jpeg", 0.7); 
 
-      pdf.addImage(
-        imgData,
-        "JPEG",
-        0,
-        0,
-        imgWidth,
-        imgHeight,
-        undefined,
-        "FAST"
-      );
+      pdf.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight, undefined, "FAST");
       pdf.save(`Invoice-${invoice.invoice_no}.pdf`);
+
     } catch (error) {
-      console.error("Gagal download PDF:", error);
-      showStatus(
-        "Gagal Download",
-        "Terjadi kesalahan saat mengunduh PDF.",
-        "error"
-      );
+      console.error(error);
+      showStatus("Gagal Download", "Terjadi kesalahan sistem.", "error");
     } finally {
       setDownloading(false);
     }
   };
 
-  const renderList = () => (
-    <Card className="shadow-sm border-0 rounded-3">
-      <Card.Header className="bg-white py-3 border-bottom">
-        <h5 className="mb-0 fw-bold d-flex align-items-center text-dark">
-          <FileText className="me-2 text-primary" size={20} />
-          Riwayat Tagihan
-        </h5>
-      </Card.Header>
-      <Card.Body className="p-0">
-        {fetching ? (
-          <div className="text-center py-5">
-            <Spinner animation="border" variant="primary" />
-          </div>
-        ) : history.length === 0 ? (
-          <div className="text-center py-5 text-muted">
-            <Search size={48} className="mb-3 opacity-25" />
-            <p>Belum ada riwayat transaksi.</p>
-            <Button variant="primary" onClick={() => navigate("/#pricing")}>
-              Lihat Paket Belajar
-            </Button>
-          </div>
-        ) : (
-          <div className="table-responsive">
-            <Table hover className="mb-0 align-middle">
-              <thead className="bg-light text-secondary small text-uppercase">
-                <tr>
-                  <th className="ps-4 py-3">No. Invoice</th>
-                  <th>Layanan</th>
-                  <th>Tanggal</th>
-                  <th>Total</th>
-                  <th>Status</th>
-                  <th className="text-end pe-4">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((item) => (
-                  <tr
-                    key={item.id}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => {
-                      setInvoice(item);
-                      setViewMode("detail");
-                    }}
-                  >
-                    <td className="ps-4 fw-bold text-primary">
-                      #{item.invoice_no}
-                    </td>
-                    <td>
-                      <span className="d-block text-dark fw-medium">
-                        {item.package_name}
-                      </span>
-                    </td>
-                    <td className="small text-muted">
-                      {new Date(item.created_at).toLocaleDateString("id-ID", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="fw-bold text-dark">
-                      {formatRupiah(item.total_amount)}
-                    </td>
-                    <td>{getStatusBadge(item.status)}</td>
-                    <td className="text-end pe-4">
-                      <Button
-                        size="sm"
-                        variant="outline-secondary"
-                        className="rounded-pill px-3"
-                      >
-                        Detail
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </div>
-        )}
-      </Card.Body>
-    </Card>
-  );
-
-  const renderDetail = () => (
-    <>
-      <div className="mb-4 d-flex justify-content-between align-items-center">
-        <Button
-          variant="link"
-          className="text-decoration-none p-0 d-flex align-items-center text-muted fw-medium"
-          onClick={() => {
-            setViewMode("list");
-            fetchHistory();
-          }}
-        >
-          <ArrowLeft size={18} className="me-2" /> Kembali ke Riwayat
-        </Button>
-        <Button
-          variant="primary"
-          onClick={handleDownloadPDF}
-          disabled={downloading}
-          className="d-flex align-items-center shadow-sm"
-        >
-          <Download size={16} className="me-2" />
-          {downloading ? "Memproses..." : "Download PDF"}
-        </Button>
+  
+  const renderUploadForm = () => {
+    if (invoice.status !== APP_CONFIG.INVOICE.STATUS.UNPAID) return null;
+    return (
+      <div className="mt-5 p-4 border border-dashed rounded bg-blue-50" style={{ backgroundColor: "#f8f9fa" }}>
+        <h6 className="fw-bold mb-3 d-flex align-items-center text-primary">
+          <Upload size={18} className="me-2" /> Upload Bukti Pembayaran
+        </h6>
+        <Form onSubmit={handleUpload}>
+          <Row className="g-2 align-items-center">
+            <Col xs={12} md>
+              <Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} required className="shadow-none" />
+            </Col>
+            <Col xs={12} md="auto">
+              <Button type="submit" variant="primary" disabled={loadingUpload} className="w-100">
+                {loadingUpload ? <Spinner size="sm" animation="border" /> : "Kirim"}
+              </Button>
+            </Col>
+          </Row>
+        </Form>
       </div>
-
-      <div className="row justify-content-center">
-        <div className="col-lg-9">
-          <div
-            ref={printRef}
-            className="bg-white p-5 shadow-sm border position-relative"
-            style={{ minHeight: "297mm", backgroundColor: "#ffffff" }}
-            id="invoice-print-area"
-          >
-            <div className="d-flex justify-content-between align-items-start border-bottom pb-4 mb-4">
-              <div>
-                <div className="d-flex align-items-center mb-3">
-                  <img
-                    src="/logo.png"
-                    alt="Logo"
-                    style={{ height: "40px", width: "auto" }}
-                    className="me-3"
-                  />
-                  <div>
-                    <h4
-                      className="fw-bold mb-0 text-primary"
-                      style={{ letterSpacing: "-0.5px" }}
-                    >
-                      MAPA
-                    </h4>
-                    <small className="text-muted">
-                      Bimbingan Belajar Online
-                    </small>
-                  </div>
-                </div>
-                <div className="text-muted small">
-                  <div className="d-flex align-items-center mb-1">
-                    <Globe size={14} className="me-2" /> www.bimbelmapa.com
-                  </div>
-                  <div className="d-flex align-items-center">
-                    <MapPin size={14} className="me-2" /> Tangerang, Banten
-                  </div>
-                </div>
-              </div>
-              <div className="text-end">
-                <h2 className="fw-bold text-secondary mb-1">INVOICE</h2>
-                <h5 className="text-dark mb-1">#{invoice.invoice_no}</h5>
-                <p className="text-muted small mb-0">
-                  Tanggal:{" "}
-                  {new Date(invoice.created_at).toLocaleDateString("id-ID", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </p>
-                <div className="mt-2">{getStatusBadge(invoice.status)}</div>
-              </div>
-            </div>
-
-            <Row className="mb-5">
-              <Col md={6}>
-                <h6 className="text-uppercase text-muted small fw-bold mb-3">
-                  Ditagihkan Kepada:
-                </h6>
-                <h5 className="fw-bold mb-1">{invoice.student_name}</h5>
-                <p className="text-muted mb-0">
-                  {invoice.student_kelas} - {invoice.student_jenjang}
-                  <br />
-                  No. WA: {invoice.student_whatsapp || "-"}
-                </p>
-              </Col>
-            </Row>
-
-            <Table className="mb-4 align-middle" bordered={false}>
-              <thead className="bg-light text-secondary">
-                <tr>
-                  <th className="py-3 ps-3" style={{ width: "50%" }}>
-                    Deskripsi Layanan
-                  </th>
-                  <th className="py-3 text-center">Periode</th>
-                  <th className="py-3 text-center">Qty</th>
-                  <th className="py-3 text-end pe-3">Jumlah</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="ps-3 py-3">
-                    <div className="fw-bold text-dark">
-                      {invoice.package_name}
-                    </div>
-                    <div className="text-muted small">
-                      Paket belajar reguler
-                    </div>
-                  </td>
-                  <td className="text-center py-3">1 Bulan</td>
-                  <td className="text-center py-3">1</td>
-                  <td className="text-end pe-3 py-3 fw-bold">
-                    {formatRupiah(invoice.total_amount)}
-                  </td>
-                </tr>
-              </tbody>
-            </Table>
-
-            <Row className="justify-content-end mb-5">
-              <Col md={5}>
-                <div className="d-flex justify-content-between mb-2">
-                  <span className="text-muted">Subtotal</span>
-                  <span className="fw-bold">
-                    {formatRupiah(invoice.total_amount)}
-                  </span>
-                </div>
-                <div className="d-flex justify-content-between mb-2 pb-2 border-bottom">
-                  <span className="text-muted">Pajak (0%)</span>
-                  <span>Rp 0</span>
-                </div>
-                <div className="d-flex justify-content-between align-items-center pt-2">
-                  <span className="fw-bold fs-5 text-dark">Total Tagihan</span>
-                  <span className="fw-bold fs-4 text-primary">
-                    {formatRupiah(invoice.total_amount)}
-                  </span>
-                </div>
-              </Col>
-            </Row>
-
-            <div className="bg-light p-4 rounded mb-5 border border-light">
-              <h6 className="fw-bold mb-3 d-flex align-items-center">
-                Metode Pembayaran
-              </h6>
-              <Row>
-                <Col md={6}>
-                  <p className="small text-muted mb-1">Bank Transfer:</p>
-                  <div className="fw-bold text-dark mb-1">BANK BTN</div>
-                  <div className="fs-5 fw-bold text-primary mb-1">
-                    016301500279103
-                  </div>
-                  <div className="small">Rahmatika Rizqiantari</div>
-                </Col>
-                <Col md={6} className="mt-3 mt-md-0 border-start ps-md-4">
-                  <p className="small text-muted mb-1">Instruksi:</p>
-                  <ul className="small text-muted ps-3 mb-0">
-                    <li>Pastikan nominal transfer sesuai total tagihan.</li>
-                    <li>Simpan bukti transfer Anda.</li>
-                    <li>
-                      Upload bukti pembayaran melalui halaman ini atau
-                      konfirmasi via WhatsApp admin.
-                    </li>
-                  </ul>
-                </Col>
-              </Row>
-            </div>
-
-            <div className="mt-auto pt-5">
-              <div className="text-center">
-                <p className="text-muted fst-italic small mb-1">
-                  "Terima kasih telah mempercayakan pendidikan Anda bersama
-                  MAPA."
-                </p>
-                <div className="border-top w-50 mx-auto my-3"></div>
-                <p className="text-muted opacity-50 small mb-0">
-                  Dokumen ini diterbitkan secara otomatis oleh sistem komputer.
-                  <br />
-                  Sah dan berlaku tanpa tanda tangan basah.
-                </p>
-              </div>
-            </div>
-
-            {invoice.status === APP_CONFIG.INVOICE.STATUS.UNPAID && (
-              <div
-                data-html2canvas-ignore
-                className="mt-5 p-4 border border-dashed rounded bg-blue-50"
-                style={{ backgroundColor: "#f8f9fa" }}
-              >
-                <h6 className="fw-bold mb-3 d-flex align-items-center text-primary">
-                  <Upload size={18} className="me-2" /> Upload Bukti Pembayaran
-                </h6>
-                <Form onSubmit={handleUpload}>
-                  <Row className="g-2 align-items-center">
-                    <Col>
-                      <Form.Control
-                        type="file"
-                        onChange={(e) => setFile(e.target.files[0])}
-                        required
-                        className="shadow-none"
-                      />
-                    </Col>
-                    <Col xs="auto">
-                      <Button
-                        type="submit"
-                        variant="primary"
-                        disabled={loading}
-                      >
-                        {loading ? (
-                          <Spinner size="sm" animation="border" />
-                        ) : (
-                          "Kirim Konfirmasi"
-                        )}
-                      </Button>
-                    </Col>
-                  </Row>
-                </Form>
-              </div>
-            )}
-
-            {invoice.status === APP_CONFIG.INVOICE.STATUS.WAITING && (
-              <div data-html2canvas-ignore className="mt-5">
-                <Alert
-                  variant="info"
-                  className="d-flex align-items-center border-0 shadow-sm"
-                >
-                  <Clock className="me-3" size={24} />
-                  <div>
-                    <h6 className="alert-heading fw-bold mb-1">
-                      Pembayaran Sedang Diverifikasi
-                    </h6>
-                    <p className="mb-0 small">
-                      Terima kasih! Bukti pembayaran Anda sudah kami terima.
-                      Admin akan memverifikasi dalam waktu 1x24 jam.
-                    </p>
-                  </div>
-                </Alert>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </>
-  );
+    );
+  };
 
   return (
-    <Container className="py-5 bg-light" fluid style={{ minHeight: "100vh" }}>
+    <Container className="py-4 py-md-5 bg-light" fluid style={{ minHeight: "100vh" }}>
       <Container style={{ maxWidth: "1000px" }}>
-        {viewMode === "list" ? renderList() : renderDetail()}
+        
+        {viewMode === "list" ? (
+          <InvoiceList 
+            history={history} 
+            fetching={fetching} 
+            navigate={navigate}
+            onSelect={(item) => { setInvoice(item); setViewMode("detail"); }} 
+          />
+        ) : (
+          <>
+            <div className="mb-3 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+              <Button variant="link" className="text-decoration-none p-0 d-flex align-items-center text-muted fw-medium" onClick={() => { setViewMode("list"); fetchHistory(); }}>
+                <ArrowLeft size={18} className="me-2" /> Kembali ke Riwayat
+              </Button>
+              <Button variant="primary" onClick={handleDownloadPDF} disabled={downloading} className="d-flex align-items-center shadow-sm w-100 w-md-auto justify-content-center">
+                <Download size={16} className="me-2" />
+                {downloading ? "Memproses..." : "Download PDF"}
+              </Button>
+            </div>
+
+            <InvoicePreviewWrapper>
+              <InvoicePaper ref={printRef} invoice={invoice}>
+                {renderUploadForm()}
+              </InvoicePaper>
+            </InvoicePreviewWrapper>
+          </>
+        )}
       </Container>
 
       <StatusModal
