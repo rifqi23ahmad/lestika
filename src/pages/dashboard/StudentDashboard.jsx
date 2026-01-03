@@ -11,6 +11,8 @@ import {
   Tab,
   Tabs,
   Table,
+  Modal,
+  Form,
 } from "react-bootstrap";
 import {
   Award,
@@ -21,6 +23,9 @@ import {
   Download,
   TrendingUp,
   RefreshCcw,
+  MessageSquare,
+  Star,
+  CheckCircle, // Icon untuk notifikasi sukses
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
@@ -34,6 +39,21 @@ export default function StudentDashboard() {
   const [materials, setMaterials] = useState([]);
   const [grades, setGrades] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
+
+  const [reviewModal, setReviewModal] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, content: "" });
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const [infoModal, setInfoModal] = useState({
+    show: false,
+    title: "",
+    msg: "",
+    type: "success", // success | error
+  });
+
+  const showModal = (title, msg, type = "success") => {
+    setInfoModal({ show: true, title, msg, type });
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
@@ -113,6 +133,30 @@ export default function StudentDashboard() {
       console.error("Gagal ambil data akademik:", err);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewForm.content) {
+      return showModal("Gagal", "Mohon isi ulasan pengalaman Anda!", "error");
+    }
+    setSubmittingReview(true);
+    try {
+      const { error } = await supabase.from("testimonials").insert({
+        student_id: user.id,
+        rating: reviewForm.rating,
+        content: reviewForm.content,
+      });
+      if (error) throw error;
+
+      setReviewModal(false);
+      showModal("Terima Kasih!", "Ulasan Anda berhasil dikirim.", "success");
+
+      setReviewForm({ rating: 5, content: "" });
+    } catch (err) {
+      showModal("Gagal", "Gagal kirim ulasan: " + err.message, "error");
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -224,13 +268,22 @@ export default function StudentDashboard() {
                 <span className="small">
                   Berlaku hingga:{" "}
                   <strong>
-                    {/* [UBAH] Gunakan formatDate */}
                     {activeInvoice.expiry_date
                       ? formatDate(activeInvoice.expiry_date)
                       : "Selamanya"}
                   </strong>
                 </span>
               </div>
+
+              <Button
+                variant="outline-light"
+                size="sm"
+                className="mt-3 rounded-pill px-3"
+                onClick={() => setReviewModal(true)}
+              >
+                <MessageSquare size={16} className="me-2" />
+                Beri Ulasan
+              </Button>
             </div>
             <Award size={64} className="opacity-50 text-white" />
           </Card.Body>
@@ -280,7 +333,6 @@ export default function StudentDashboard() {
                           <div>
                             <h6 className="fw-bold mb-1">{item.title}</h6>
                             <small className="text-muted">
-                              {/* [UBAH] Gunakan formatDate */}
                               Jenjang: {item.jenjang || "Umum"} •{" "}
                               {formatDate(item.created_at)}
                             </small>
@@ -347,7 +399,6 @@ export default function StudentDashboard() {
                             <td className="text-muted fst-italic">
                               "{g.feedback || "-"}"
                             </td>
-                            {/* [UBAH] Gunakan formatDate */}
                             <td className="text-muted small">
                               {formatDate(g.created_at)}
                             </td>
@@ -362,6 +413,96 @@ export default function StudentDashboard() {
           </Card.Body>
         </Card>
       </Col>
+
+      <Modal show={reviewModal} onHide={() => setReviewModal(false)} centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold">Beri Ulasan</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="pt-2">
+          <div className="text-center mb-4">
+            <p className="text-muted mb-2">Seberapa puas Anda dengan MAPA?</p>
+            <div className="d-flex justify-content-center">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                  key={star}
+                  size={36}
+                  className={`mx-1 cursor-pointer ${
+                    star <= reviewForm.rating
+                      ? "text-warning fill-warning"
+                      : "text-light-gray"
+                  }`}
+                  style={{
+                    cursor: "pointer",
+                    fill: star <= reviewForm.rating ? "#ffc107" : "none",
+                    color: star <= reviewForm.rating ? "#ffc107" : "#dee2e6",
+                  }}
+                  onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                />
+              ))}
+            </div>
+          </div>
+          <Form.Group>
+            <Form.Label className="fw-bold">Ceritakan pengalamanmu</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={4}
+              placeholder="Contoh: Gurunya sangat sabar dan materinya mudah dipahami..."
+              value={reviewForm.content}
+              onChange={(e) =>
+                setReviewForm({ ...reviewForm, content: e.target.value })
+              }
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer className="border-0 pt-0">
+          <Button variant="secondary" onClick={() => setReviewModal(false)}>
+            Batal
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSubmitReview}
+            disabled={submittingReview}
+          >
+            {submittingReview ? (
+              <Spinner size="sm" animation="border" />
+            ) : (
+              "Kirim Ulasan"
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        show={infoModal.show}
+        onHide={() => setInfoModal({ ...infoModal, show: false })}
+        centered
+        size="sm"
+      >
+        <Modal.Body className="text-center p-4">
+          <div
+            className={`mx-auto mb-3 p-3 rounded-circle d-inline-flex ${
+              infoModal.type === "error"
+                ? "bg-danger bg-opacity-10 text-danger"
+                : "bg-success bg-opacity-10 text-success"
+            }`}
+          >
+            {infoModal.type === "error" ? (
+              <AlertTriangle size={32} />
+            ) : (
+              <CheckCircle size={32} />
+            )}
+          </div>
+          <h5 className="fw-bold mb-2">{infoModal.title}</h5>
+          <p className="text-muted mb-4">{infoModal.msg}</p>
+          <Button
+            variant={infoModal.type === "error" ? "danger" : "success"}
+            className="w-100 rounded-pill"
+            onClick={() => setInfoModal({ ...infoModal, show: false })}
+          >
+            Tutup
+          </Button>
+        </Modal.Body>
+      </Modal>
     </Row>
   );
 }

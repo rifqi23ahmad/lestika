@@ -1,34 +1,97 @@
 import React, { useState, useEffect } from "react";
 import { Container, Row, Col, Button, Card, Spinner } from "react-bootstrap";
-import { Users, BookOpen, Award, CheckCircle, ArrowRight } from "lucide-react";
+import {
+  Users,
+  BookOpen,
+  Award,
+  CheckCircle,
+  ArrowRight,
+  Star,
+  Quote,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { packageService } from "../services/packageService";
 import { useAuth } from "../context/AuthContext";
 import { formatRupiah } from "../utils/format";
 import { InfoModal } from "../components/admin/modals/DashboardModals";
+import { supabase } from "../lib/supabase";
 
 export default function HomeView() {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [testimonials, setTestimonials] = useState([]);
+  const [loadingTesti, setLoadingTesti] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const itemsPerPage = isMobile ? 1 : 3;
+
   useEffect(() => {
-    const fetchPackages = async () => {
-      try {
-        const data = await packageService.getAll();
-        setPackages(data);
-      } catch (error) {
-        console.error("Gagal mengambil paket:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchPackages();
+    fetchTestimonials();
+
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      setCurrentIndex(0);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const fetchPackages = async () => {
+    try {
+      const data = await packageService.getAll();
+      setPackages(data);
+    } catch (error) {
+      console.error("Gagal mengambil paket:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTestimonials = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("testimonials")
+        .select(
+          `
+          id, content, rating, created_at,
+          student:profiles!student_id (full_name)
+        `
+        )
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setTestimonials(data || []);
+    } catch (err) {
+      console.error("Gagal ambil testimoni:", err);
+    } finally {
+      setLoadingTesti(false);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentIndex + itemsPerPage < testimonials.length) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
 
   const handlePackageClick = (pkg) => {
     if (user) {
@@ -43,12 +106,27 @@ export default function HomeView() {
     navigate("/login");
   };
 
+  const renderStars = (count) => {
+    return [...Array(5)].map((_, i) => (
+      <Star
+        key={i}
+        size={14}
+        className={
+          i < count ? "text-warning fill-warning" : "text-muted opacity-25"
+        }
+        fill={i < count ? "currentColor" : "none"}
+      />
+    ));
+  };
+
   return (
     <>
-      {/* Hero Section */}
       <div
-        className="bg-primary text-white py-5 position-relative overflow-hidden"
-        style={{ minHeight: "80vh", display: "flex", alignItems: "center" }}
+        className="bg-primary text-white position-relative overflow-hidden d-flex align-items-center"
+        style={{
+          minHeight: isMobile ? "auto" : "80vh",
+          padding: isMobile ? "4rem 0" : "5rem 0",
+        }}
       >
         <div
           className="position-absolute w-100 h-100 top-0 start-0"
@@ -62,20 +140,20 @@ export default function HomeView() {
           className="position-relative text-center"
           style={{ zIndex: 1 }}
         >
-          <h1 className="display-3 fw-bold mb-4">
+          <h1 className="display-5 display-md-3 fw-bold mb-3 mb-md-4">
             Raih Prestasi Bersama <span className="text-warning">MAPA</span>
           </h1>
           <p
-            className="lead mb-5 mx-auto opacity-75"
+            className="lead mb-4 mb-md-5 mx-auto opacity-75 fs-6 fs-md-5"
             style={{ maxWidth: "700px" }}
           >
             Bimbingan Belajar Privat dan Group Matematika SD SMP SMA dan IPA
             untuk SMP SMA
           </p>
-          <div className="d-flex justify-content-center gap-3">
+          <div className="d-flex flex-column flex-md-row justify-content-center gap-3">
             <Button
               variant="warning"
-              size="lg"
+              size={isMobile ? "md" : "lg"}
               className="fw-bold px-5 rounded-pill shadow-lg"
               onClick={() =>
                 document
@@ -88,7 +166,7 @@ export default function HomeView() {
             {!user && (
               <Button
                 variant="outline-light"
-                size="lg"
+                size={isMobile ? "md" : "lg"}
                 className="fw-bold px-5 rounded-pill"
                 onClick={() => navigate("/login")}
               >
@@ -99,14 +177,13 @@ export default function HomeView() {
         </Container>
       </div>
 
-      {/* Features Section */}
       <Container className="py-5">
-        <Row className="text-center mb-5">
+        <Row className="text-center mb-4 mb-md-5">
           <Col>
-            <h2 className="fw-bold">Mengapa Memilih Kami?</h2>
+            <h2 className="fw-bold fs-3 fs-md-2">Mengapa Memilih Kami?</h2>
           </Col>
         </Row>
-        <Row className="g-4">
+        <Row className="g-3 g-md-4">
           {[
             {
               icon: Users,
@@ -141,11 +218,10 @@ export default function HomeView() {
         </Row>
       </Container>
 
-      {/* Packages Section */}
       <div id="paket" className="bg-light py-5">
         <Container>
-          <div className="text-center mb-5">
-            <h2 className="fw-bold">Pilihan Paket Belajar</h2>
+          <div className="text-center mb-4 mb-md-5">
+            <h2 className="fw-bold fs-3 fs-md-2">Pilihan Paket Belajar</h2>
           </div>
 
           {loading ? (
@@ -171,7 +247,7 @@ export default function HomeView() {
                       ></div>
                       <Card.Body className="d-flex flex-column p-4">
                         <div className="text-center mb-4">
-                          <h3 className="fw-bold mb-1">{pkg.title}</h3>
+                          <h3 className="fw-bold mb-1 fs-4">{pkg.title}</h3>
 
                           <h2 className="text-primary fw-bold display-6">
                             {formatRupiah(pkg.price)}
@@ -180,7 +256,7 @@ export default function HomeView() {
                             </span>
                           </h2>
                         </div>
-                        <ul className="list-unstyled mb-4 flex-grow-1 px-3">
+                        <ul className="list-unstyled mb-4 flex-grow-1 px-2 px-md-3">
                           {featuresList.map((feature, idx) => (
                             <li
                               key={idx}
@@ -214,7 +290,142 @@ export default function HomeView() {
         </Container>
       </div>
 
-      {/* MODAL GLOBAL */}
+      <div className="py-5 bg-white">
+        <Container>
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 mb-md-5">
+            <div className="text-center text-md-start w-100 w-md-auto">
+              <h6 className="text-primary fw-bold text-uppercase ls-1 mb-2">
+                Testimoni
+              </h6>
+              <h2 className="fw-bold display-6 text-dark fs-3 fs-md-2">
+                Apa Kata Mereka?
+              </h2>
+              <p className="text-muted mb-0">
+                Pengalaman belajar seru bersama MAPA
+              </p>
+            </div>
+
+            {!isMobile && testimonials.length > itemsPerPage && (
+              <div className="d-none d-md-flex gap-2">
+                <Button
+                  variant="outline-secondary"
+                  className="rounded-circle p-0 d-flex align-items-center justify-content-center border"
+                  style={{ width: "40px", height: "40px" }}
+                  onClick={handlePrev}
+                  disabled={currentIndex === 0}
+                >
+                  <ChevronLeft size={20} />
+                </Button>
+                <Button
+                  variant="outline-primary"
+                  className="rounded-circle p-0 d-flex align-items-center justify-content-center border"
+                  style={{ width: "40px", height: "40px" }}
+                  onClick={handleNext}
+                  disabled={currentIndex + itemsPerPage >= testimonials.length}
+                >
+                  <ChevronRight size={20} />
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {loadingTesti ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="primary" />
+            </div>
+          ) : testimonials.length === 0 ? (
+            <div className="text-center py-5 bg-light rounded-4">
+              <p className="text-muted fst-italic mb-0">
+                Belum ada testimoni saat ini.
+              </p>
+            </div>
+          ) : (
+            <>
+              <Row className="g-4 justify-content-center">
+                {testimonials
+                  .slice(currentIndex, currentIndex + itemsPerPage)
+                  .map((t) => (
+                    <Col xs={12} md={4} key={t.id}>
+                      <Card className="border shadow-sm h-100 rounded-3 bg-white">
+                        <Card.Body className="p-4 d-flex flex-column">
+                          <div className="mb-3">
+                            <div
+                              className="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center"
+                              style={{ width: 36, height: 36 }}
+                            >
+                              <Quote size={18} className="fill-current" />
+                            </div>
+                          </div>
+
+                          <p
+                            className="text-secondary flex-grow-1 mb-4"
+                            style={{ fontSize: "0.95rem", lineHeight: "1.6" }}
+                          >
+                            {t.content}
+                          </p>
+
+                          <div className="d-flex align-items-center pt-3 border-top">
+                            <div
+                              className="bg-light text-primary border rounded-circle d-flex align-items-center justify-content-center fw-bold me-3"
+                              style={{
+                                width: 42,
+                                height: 42,
+                                fontSize: "1rem",
+                              }}
+                            >
+                              {t.student?.full_name?.charAt(0).toUpperCase() ||
+                                "U"}
+                            </div>
+                            <div>
+                              <h6
+                                className="fw-bold mb-0 text-dark"
+                                style={{ fontSize: "0.9rem" }}
+                              >
+                                {t.student?.full_name || "Siswa"}
+                              </h6>
+                              <div className="d-flex mt-1">
+                                {renderStars(t.rating)}
+                              </div>
+                            </div>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                  ))}
+              </Row>
+
+              {isMobile && testimonials.length > 1 && (
+                <div className="d-flex justify-content-center align-items-center gap-4 mt-4 pt-3">
+                  <Button
+                    variant="primary"
+                    className="rounded-circle shadow-sm p-3 border-0 d-flex align-items-center justify-content-center"
+                    style={{ width: "50px", height: "50px" }}
+                    onClick={handlePrev}
+                    disabled={currentIndex === 0}
+                  >
+                    <ChevronLeft size={24} className="text-white" />
+                  </Button>
+
+                  <span className="text-dark small fw-bold bg-light px-3 py-1 rounded-pill border">
+                    {currentIndex + 1} / {testimonials.length}
+                  </span>
+
+                  <Button
+                    variant="primary"
+                    className="rounded-circle shadow-sm p-3 border-0 d-flex align-items-center justify-content-center"
+                    style={{ width: "50px", height: "50px" }}
+                    onClick={handleNext}
+                    disabled={currentIndex + 1 >= testimonials.length}
+                  >
+                    <ChevronRight size={24} className="text-white" />
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </Container>
+      </div>
+
       <InfoModal
         show={showAuthModal}
         onClose={handleCloseModal}
