@@ -15,16 +15,16 @@ export const AuthProvider = ({ children }) => {
       sessionUser.app_metadata?.role;
 
     const rawName =
-      profile?.full_name || 
-      sessionUser.user_metadata?.full_name || 
-      sessionUser.user_metadata?.name || 
-      sessionUser.email; 
+      profile?.full_name ||
+      sessionUser.user_metadata?.full_name ||
+      sessionUser.user_metadata?.name ||
+      sessionUser.email;
 
     return {
       id: sessionUser.id,
       email: sessionUser.email,
       role: rawRole ? rawRole.toLowerCase() : "siswa",
-      name: rawName, 
+      name: rawName,
       jenjang: profile?.jenjang,
       kelas: profile?.kelas,
       whatsapp: profile?.whatsapp,
@@ -117,10 +117,15 @@ export const AuthProvider = ({ children }) => {
     authService.register(email, password, name, detailData);
 
   const logout = async () => {
-    await authService.logout();
-    localStorage.clear();
-    sessionStorage.clear();
-    setUser(null);
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error("Logout error (ignored):", error);
+    } finally {
+      localStorage.clear();
+      sessionStorage.clear();
+      setUser(null);
+    }
   };
 
   return (

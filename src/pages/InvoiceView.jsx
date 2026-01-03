@@ -292,10 +292,10 @@ export default function InvoiceView() {
                 </div>
                 <div className="text-muted small">
                   <div className="d-flex align-items-center mb-1">
-                    <Globe size={14} className="me-2" /> www.mapa-belajar.com
+                    <Globe size={14} className="me-2" /> www.bimbelmapa.com
                   </div>
                   <div className="d-flex align-items-center">
-                    <MapPin size={14} className="me-2" /> Jakarta, Indonesia
+                    <MapPin size={14} className="me-2" /> Tangerang, Banten
                   </div>
                 </div>
               </div>
