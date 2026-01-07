@@ -8,7 +8,6 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper untuk format data user
   const formatUser = (sessionUser, profile = null) => {
     const rawRole =
       profile?.role ||
@@ -32,7 +31,6 @@ export const AuthProvider = ({ children }) => {
     };
   };
 
-  // Helper untuk ambil data profile dari DB
   const getProfile = async (userId) => {
     try {
       const { data, error } = await supabase
@@ -102,12 +100,12 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // --- LOGIN BIASA ---
   const login = async (email, password) => {
     const data = await authService.login(email, password);
 
     if (data.user) {
       const profile = await getProfile(data.user.id);
+
       const fixedUser = formatUser(data.user, profile);
       setUser(fixedUser);
     }
@@ -115,35 +113,8 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  // --- LOGIN OTP ---
-  const sendLoginOtp = (email) => authService.sendOtp(email);
-
-  const verifyLoginOtp = async (email, token) => {
-    const data = await authService.verifyOtp(email, token);
-
-    if (data.user) {
-      const profile = await getProfile(data.user.id);
-      const fixedUser = formatUser(data.user, profile);
-      setUser(fixedUser);
-    }
-    return data;
-  };
-
-  // --- REGISTER ---
   const register = (email, password, name, detailData) =>
     authService.register(email, password, name, detailData);
-
-  // --- VERIFIKASI SIGNUP (Ini yang error "is not a function" sebelumnya) ---
-  const verifySignupOtp = async (email, token) => {
-    const data = await authService.verifyRegistration(email, token);
-
-    if (data.user) {
-      const profile = await getProfile(data.user.id);
-      const fixedUser = formatUser(data.user, profile);
-      setUser(fixedUser);
-    }
-    return data;
-  };
 
   const logout = async () => {
     try {
@@ -158,18 +129,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        login,
-        logout,
-        register,
-        sendLoginOtp,    // Pastikan ini ada
-        verifyLoginOtp,  // Pastikan ini ada
-        verifySignupOtp, // Pastikan ini ada
-      }}
-    >
+    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

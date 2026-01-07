@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Container, Card, Form, Button, Alert, Row, Col } from "react-bootstrap";
 import { User, Mail, Lock, BookOpen, Phone, KeyRound, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import FormInput from "../components/common/FormInput";
+import { supabase } from "../lib/supabase"; 
 
 export default function SignupView() {
   const { register, verifySignupOtp, sendLoginOtp } = useAuth();
@@ -27,15 +28,36 @@ export default function SignupView() {
   const [successMsg, setSuccessMsg] = useState("");
   const [isRedirecting, setIsRedirecting] = useState(false);
 
+  // --- [BARU] STATE UNTUK TIMER ---
+  const [countdown, setCountdown] = useState(0);
+
+  // --- [BARU] EFEK TIMER MUNDUR ---
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
+
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleResendOtp = async () => {
+    // Cegah klik jika loading atau timer masih jalan
+    if (loading || countdown > 0) return;
+
     setLoading(true);
     setErrorMsg("");
+    setSuccessMsg("");
+    
     try {
         await sendLoginOtp(formData.email);
         setSuccessMsg("Kode baru telah dikirim! Cek inbox/spam.");
+        // Reset timer ke 60 detik
+        setCountdown(60);
     } catch (error) {
         setErrorMsg("Gagal mengirim ulang kode: " + error.message);
     } finally {
@@ -55,6 +77,20 @@ export default function SignupView() {
           throw new Error("Password konfirmasi tidak cocok!");
         }
 
+        // 1. CEK EMAIL DULU (RPC)
+        const { data: isRegistered, error: rpcError } = await supabase
+          .rpc('check_email_exists', { email_input: formData.email });
+
+        if (rpcError) console.error("RPC Error:", rpcError);
+
+        if (isRegistered) {
+          setErrorMsg("Email sudah terdaftar! Mengalihkan ke halaman login...");
+          setIsRedirecting(true);
+          setTimeout(() => navigate("/login"), 2000);
+          return; 
+        }
+
+        // 2. REGISTER (Hanya 1 hit endpoint sekarang, via authService)
         await register(formData.email, formData.password, formData.fullName, {
           jenjang: formData.jenjang,
           kelas: formData.kelas,
@@ -63,8 +99,11 @@ export default function SignupView() {
 
         setMode("otp");
         setSuccessMsg("Kode verifikasi dikirim ke email Anda.");
+        // Mulai timer 60 detik pertama kali
+        setCountdown(60);
       
       } else {
+        // VERIFIKASI OTP
         await verifySignupOtp(formData.email, formData.otpCode);
         navigate("/");
       }
@@ -73,16 +112,15 @@ export default function SignupView() {
       console.error("Signup Error:", error);
       let msg = error.message;
 
-      // --- LOGIKA UTAMA: Handle Email Duplikat ---
       if (msg === "EMAIL_EXISTS" || msg.includes("already registered")) {
           setErrorMsg("Email sudah terdaftar! Mengalihkan ke halaman login...");
           setIsRedirecting(true);
           setTimeout(() => navigate("/login"), 2000);
           return;
       }
-      // --- LOGIKA UTAMA: Cek Setting Supabase ---
+      
       if (msg.includes("SETTING_ERROR")) {
-          setErrorMsg("Konfigurasi server salah. Harap hubungi admin (Enable Confirm Email).");
+          setErrorMsg("Konfigurasi server salah. Harap hubungi admin.");
           return;
       }
 
@@ -145,7 +183,21 @@ export default function SignupView() {
             ) : (
               <>
                 <FormInput icon={KeyRound} name="otpCode" type="text" placeholder="Kode OTP" required value={formData.otpCode} onChange={handleChange} className="mb-3 text-center fw-bold fs-5" autoFocus maxLength={8} />
-                <div className="text-end mb-4"><Button variant="link" className="text-muted small text-decoration-none p-0" onClick={handleResendOtp} disabled={loading}>Kirim ulang kode</Button></div>
+                
+                {/* TOMBOL RESEND OTP DENGAN TIMER */}
+                <div className="text-end mb-4">
+                  <Button 
+                    variant="link" 
+                    className="text-muted small text-decoration-none p-0" 
+                    onClick={handleResendOtp} 
+                    disabled={loading || countdown > 0} // Disabled jika loading atau timer jalan
+                    style={{ cursor: (loading || countdown > 0) ? 'not-allowed' : 'pointer' }}
+                  >
+                    {countdown > 0 
+                      ? `Kirim ulang kode (${countdown}s)` 
+                      : "Kirim ulang kode"}
+                  </Button>
+                </div>
               </>
             )}
 
