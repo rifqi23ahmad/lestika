@@ -1,58 +1,45 @@
 import React, { useState } from "react";
-import { Form, Button, Alert } from "react-bootstrap";
-import {
-  User,
-  Lock,
-  Mail,
-  Phone,
-  GraduationCap,
-} from "lucide-react";
+import { Container, Card, Form, Button, Alert, Row, Col } from "react-bootstrap";
+import { User, Mail, Lock, BookOpen, Phone, KeyRound, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import FormInput from "../components/common/FormInput";
-import StatusModal from "../components/common/StatusModal";
-import AuthLayout from "../components/layout/AuthLayout";
 
 export default function SignupView() {
-  const { register } = useAuth();
+  const { register, verifySignupOtp, sendLoginOtp } = useAuth();
   const navigate = useNavigate();
 
+  const [mode, setMode] = useState("register");
+  
   const [formData, setFormData] = useState({
+    fullName: "",
     email: "",
     password: "",
     confirmPassword: "",
-    name: "",
-    jenjang: "SD",
-    kelas: "",
+    jenjang: "SMA",
+    kelas: "10",
     whatsapp: "",
+    otpCode: "" 
   });
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const preventInvalidNumberInput = (e) => {
-    if (["e", "E", "+", "-", "."].includes(e.key)) {
-      e.preventDefault();
-    }
-  };
-
-  const preventNonLetters = (e) => {
-    if (
-      e.key === "Backspace" ||
-      e.key === "Delete" ||
-      e.key === "Tab" ||
-      e.key.startsWith("Arrow") ||
-      e.ctrlKey ||
-      e.metaKey
-    ) {
-      return;
-    }
-    if (!/^[a-zA-Z\s]$/.test(e.key)) {
-      e.preventDefault();
+  const handleResendOtp = async () => {
+    setLoading(true);
+    setErrorMsg("");
+    try {
+        await sendLoginOtp(formData.email);
+        setSuccessMsg("Kode baru telah dikirim! Cek inbox/spam.");
+    } catch (error) {
+        setErrorMsg("Gagal mengirim ulang kode: " + error.message);
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -60,173 +47,122 @@ export default function SignupView() {
     e.preventDefault();
     setLoading(true);
     setErrorMsg("");
+    setSuccessMsg("");
 
     try {
-      if (formData.name.trim().length < 3) {
-        throw new Error("Nama minimal harus 3 karakter.");
-      }
-      const nameRegex = /^[a-zA-Z\s]+$/;
-      if (!nameRegex.test(formData.name)) {
-        throw new Error("Nama harus huruf saja (tidak boleh angka/simbol).");
-      }
-      const numberRegex = /^\d+$/;
-      if (!numberRegex.test(formData.kelas)) {
-        throw new Error("Kelas harus berupa angka.");
-      }
-      if (!numberRegex.test(formData.whatsapp)) {
-        throw new Error("Nomor WhatsApp hanya boleh berisi angka.");
-      }
-      if (formData.whatsapp.length < 10) {
-        throw new Error("Nomor WhatsApp minimal 10 digit.");
-      }
-      const hasLetter = /[a-zA-Z]/.test(formData.password);
-      const hasNumber = /\d/.test(formData.password);
-      if (!hasLetter || !hasNumber) {
-        throw new Error("Password harus mengandung kombinasi huruf dan angka.");
-      }
-      if (formData.password !== formData.confirmPassword) {
-        throw new Error("Password dan Konfirmasi Password tidak sama!");
-      }
+      if (mode === "register") {
+        if (formData.password !== formData.confirmPassword) {
+          throw new Error("Password konfirmasi tidak cocok!");
+        }
 
-      await register(formData.email, formData.password, formData.name, {
-        jenjang: formData.jenjang,
-        kelas: formData.kelas,
-        whatsapp: formData.whatsapp,
-      });
+        await register(formData.email, formData.password, formData.fullName, {
+          jenjang: formData.jenjang,
+          kelas: formData.kelas,
+          whatsapp: formData.whatsapp,
+        });
 
-      setShowSuccessModal(true);
+        setMode("otp");
+        setSuccessMsg("Kode verifikasi dikirim ke email Anda.");
+      
+      } else {
+        await verifySignupOtp(formData.email, formData.otpCode);
+        navigate("/");
+      }
+      
     } catch (error) {
-      setErrorMsg(error.message || "Gagal mendaftar.");
+      console.error("Signup Error:", error);
+      let msg = error.message;
+
+      // --- LOGIKA UTAMA: Handle Email Duplikat ---
+      if (msg === "EMAIL_EXISTS" || msg.includes("already registered")) {
+          setErrorMsg("Email sudah terdaftar! Mengalihkan ke halaman login...");
+          setIsRedirecting(true);
+          setTimeout(() => navigate("/login"), 2000);
+          return;
+      }
+      // --- LOGIKA UTAMA: Cek Setting Supabase ---
+      if (msg.includes("SETTING_ERROR")) {
+          setErrorMsg("Konfigurasi server salah. Harap hubungi admin (Enable Confirm Email).");
+          return;
+      }
+
+      setErrorMsg(msg || "Gagal memproses data.");
     } finally {
-      setLoading(false);
+      if (!isRedirecting) setLoading(false);
     }
   };
 
-  const footerContent = (
-    <>
-      <span className="text-muted small">Sudah punya akun? </span>
-      <Button
-        variant="link"
-        className="p-0 fw-bold text-decoration-none"
-        onClick={() => navigate("/login")}
-      >
-        Login disini
-      </Button>
-    </>
-  );
-
   return (
-    <AuthLayout
-      title="Daftar Akun Siswa"
-      subtitle="Lengkapi data diri untuk memulai"
-      maxWidth="500px"
-      footer={footerContent}
+    <Container
+      className="d-flex align-items-center justify-content-center py-5"
+      style={{ minHeight: "calc(100vh - 80px)" }}
     >
-      {errorMsg && (
-        <Alert variant="danger" className="small">
-          {errorMsg}
-        </Alert>
-      )}
-
-      <Form onSubmit={handleSubmit}>
-        <FormInput
-          icon={User}
-          name="name"
-          placeholder="Nama Lengkap"
-          required
-          onChange={handleChange}
-          onKeyDown={preventNonLetters}
-        />
-
-        <div className="row g-2 mb-3">
-          <div className="col-6">
-            <Form.Select
-              name="jenjang"
-              onChange={handleChange}
-              value={formData.jenjang}
-              style={{ height: "100%" }} 
-              className="form-control"
-            >
-              <option value="SD">SD</option>
-              <option value="SMP">SMP</option>
-              <option value="SMA">SMA</option>
-            </Form.Select>
+      <Card
+        className="shadow-lg border-0"
+        style={{ maxWidth: "600px", width: "100%", borderRadius: "15px" }}
+      >
+        <Card.Body className="p-4 p-md-5">
+          <div className="text-center mb-4">
+            <h2 className="fw-bold text-primary">
+              {mode === "register" ? "Daftar Akun Baru" : "Verifikasi Email"}
+            </h2>
+            <p className="text-muted small">
+              {mode === "register" 
+                ? "Bergabunglah untuk mulai belajar" 
+                : `Masukkan kode OTP yang dikirim ke ${formData.email}`}
+            </p>
           </div>
-          <div className="col-6">
-            <FormInput
-              icon={GraduationCap}
-              name="kelas"
-              type="number"
-              placeholder="Kelas"
-              required
-              onChange={handleChange}
-              onKeyDown={preventInvalidNumberInput}
-              className="mb-0"
-            />
-          </div>
-        </div>
 
-        <FormInput
-          icon={Phone}
-          name="whatsapp"
-          type="number"
-          placeholder="No. WhatsApp"
-          required
-          onChange={handleChange}
-          onKeyDown={preventInvalidNumberInput}
-        />
+          {errorMsg && <Alert variant="danger" className="small">{errorMsg}</Alert>}
+          {successMsg && <Alert variant="success" className="small">{successMsg}</Alert>}
 
-        <FormInput
-          icon={Mail}
-          name="email"
-          type="email"
-          placeholder="Email"
-          required
-          onChange={handleChange}
-        />
+          <Form onSubmit={handleSubmit}>
+            {mode === "register" ? (
+              <>
+                <FormInput icon={User} name="fullName" placeholder="Nama Lengkap" required value={formData.fullName} onChange={handleChange} />
+                <Row>
+                  <Col md={6}><FormInput icon={Mail} name="email" type="email" placeholder="Email" required value={formData.email} onChange={handleChange} /></Col>
+                  <Col md={6}><FormInput icon={Phone} name="whatsapp" type="tel" placeholder="WhatsApp" required value={formData.whatsapp} onChange={handleChange} /></Col>
+                </Row>
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <div className="input-group">
+                        <span className="input-group-text bg-light border-end-0"><BookOpen size={18} className="text-muted" /></span>
+                        <Form.Select name="jenjang" value={formData.jenjang} onChange={handleChange} className="border-start-0 shadow-none bg-light" style={{ height: "45px" }}>
+                          <option value="SD">SD</option><option value="SMP">SMP</option><option value="SMA">SMA</option><option value="Mahasiswa">Mahasiswa</option><option value="Umum">Umum</option>
+                        </Form.Select>
+                      </div>
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}><FormInput icon={BookOpen} name="kelas" placeholder="Kelas" required value={formData.kelas} onChange={handleChange} /></Col>
+                </Row>
+                <Row>
+                  <Col md={6}><FormInput icon={Lock} name="password" type="password" placeholder="Password" required value={formData.password} onChange={handleChange} /></Col>
+                  <Col md={6}><FormInput icon={Lock} name="confirmPassword" type="password" placeholder="Konfirmasi" required value={formData.confirmPassword} onChange={handleChange} className="mb-4" /></Col>
+                </Row>
+              </>
+            ) : (
+              <>
+                <FormInput icon={KeyRound} name="otpCode" type="text" placeholder="Kode OTP" required value={formData.otpCode} onChange={handleChange} className="mb-3 text-center fw-bold fs-5" autoFocus maxLength={8} />
+                <div className="text-end mb-4"><Button variant="link" className="text-muted small text-decoration-none p-0" onClick={handleResendOtp} disabled={loading}>Kirim ulang kode</Button></div>
+              </>
+            )}
 
-        <FormInput
-          icon={Lock}
-          name="password"
-          type="password"
-          placeholder="Password (Huruf & Angka)"
-          required
-          minLength={6}
-          onChange={handleChange}
-        />
+            <Button variant="primary" type="submit" className="w-100 py-2 fw-bold shadow-sm mb-3" disabled={loading || isRedirecting}>
+              {isRedirecting ? "Mengalihkan..." : loading ? "Memproses..." : mode === "register" ? "Daftar Sekarang" : "Verifikasi & Masuk"}
+            </Button>
 
-        <FormInput
-          icon={Lock}
-          name="confirmPassword"
-          type="password"
-          placeholder="Ulangi Password"
-          required
-          onChange={handleChange}
-          className="mb-4"
-        />
-
-        <Button
-          variant="primary"
-          type="submit"
-          className="w-100 py-2 fw-bold shadow-sm"
-          disabled={loading}
-        >
-          {loading ? "Memproses..." : "Daftar Sekarang"}
-        </Button>
-      </Form>
-
-      <StatusModal
-        show={showSuccessModal}
-        onHide={() => setShowSuccessModal(false)}
-        type="success"
-        title="Pendaftaran Berhasil!"
-        message="Akun Anda telah aktif. Anda akan dialihkan ke Dashboard secara otomatis."
-        actionLabel="Masuk ke Dashboard"
-        onAction={() => {
-          setShowSuccessModal(false);
-          navigate("/dashboard");
-        }}
-      />
-    </AuthLayout>
+            {mode === "otp" && (
+               <Button variant="link" className="text-decoration-none w-100 text-muted small" onClick={() => { setMode("register"); setSuccessMsg(""); setErrorMsg(""); }} disabled={loading}>
+                 <ArrowLeft size={14} className="me-1" /> Edit Data
+               </Button>
+            )}
+          </Form>
+          
+          {mode === "register" && <div className="text-center mt-3 pt-3 border-top"><span className="text-muted small">Sudah punya akun? </span><Button variant="link" className="p-0 fw-bold text-decoration-none" onClick={() => navigate("/login")}>Masuk disini</Button></div>}
+        </Card.Body>
+      </Card>
+    </Container>
   );
 }

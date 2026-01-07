@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Tabs, Tab, Modal, Button } from "react-bootstrap";
-import { Calendar, UserCheck, Upload, AlertTriangle, CheckCircle, FileText, PenTool } from "lucide-react";
+import {
+  Calendar,
+  UserCheck,
+  Upload,
+  AlertTriangle,
+  CheckCircle,
+  FileText,
+  PenTool,
+} from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 
@@ -13,9 +21,12 @@ import WhiteboardTab from "../dashboard/teacher/WhiteboardTab"; // IMPORT BARU
 export default function TeacherDashboard() {
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
-  
+
   const [modalData, setModalData] = useState({
-    show: false, title: "", msg: "", type: "info",
+    show: false,
+    title: "",
+    msg: "",
+    type: "info",
   });
 
   const showModal = (title, msg, type = "info") => {
@@ -27,44 +38,102 @@ export default function TeacherDashboard() {
   }, []);
 
   const fetchStudents = async () => {
-    const { data } = await supabase.from("profiles").select("id, full_name, email").eq("role", "siswa");
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("role", "siswa");
     setStudents(data || []);
   };
 
   return (
     <div className="pb-5">
       <Tabs defaultActiveKey="jadwal" className="mb-4 border-bottom-0">
-        <Tab eventKey="jadwal" title={<><Calendar size={18} className="me-2" />Kelola Jadwal</>}>
+        <Tab
+          eventKey="jadwal"
+          title={
+            <>
+              <Calendar size={18} className="me-2" />
+              Kelola Jadwal
+            </>
+          }
+        >
           <ScheduleTab user={user} students={students} showModal={showModal} />
         </Tab>
 
-        <Tab eventKey="nilai" title={<><UserCheck size={18} className="me-2" />Input Nilai</>}>
+        <Tab
+          eventKey="nilai"
+          title={
+            <>
+              <UserCheck size={18} className="me-2" />
+              Input Nilai
+            </>
+          }
+        >
           <GradeTab user={user} students={students} showModal={showModal} />
         </Tab>
 
-        <Tab eventKey="bank_soal" title={<><FileText size={18} className="me-2" />Bank Soal</>}>
-           <QuestionBankTab user={user} showModal={showModal} />
+        <Tab
+          eventKey="bank_soal"
+          title={
+            <>
+              <FileText size={18} className="me-2" />
+              Bank Soal
+            </>
+          }
+        >
+          <QuestionBankTab user={user} showModal={showModal} />
         </Tab>
 
-        {/* --- TAB BARU: WHITEBOARD --- */}
-        <Tab eventKey="whiteboard" title={<><PenTool size={18} className="me-2" />Whiteboard</>}>
-           <WhiteboardTab showModal={showModal} />
+        <Tab
+          eventKey="whiteboard"
+          title={
+            <>
+              <PenTool size={18} className="me-2" />
+              Whiteboard
+            </>
+          }
+        >
+          <WhiteboardTab showModal={showModal} />
         </Tab>
-        {/* --------------------------- */}
 
-        <Tab eventKey="materi" title={<><Upload size={18} className="me-2" />Upload Materi</>}>
+        <Tab
+          eventKey="materi"
+          title={
+            <>
+              <Upload size={18} className="me-2" />
+              Upload Materi
+            </>
+          }
+        >
           <MaterialTab user={user} showModal={showModal} />
         </Tab>
       </Tabs>
 
-      <Modal show={modalData.show} onHide={() => setModalData({ ...modalData, show: false })} centered>
+      <Modal
+        show={modalData.show}
+        onHide={() => setModalData({ ...modalData, show: false })}
+        centered
+      >
         <Modal.Body className="text-center p-4">
-          <div className={`mx-auto mb-3 p-3 rounded-full w-fit ${modalData.type === "error" ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"}`}>
-            {modalData.type === "error" ? <AlertTriangle size={32} /> : <CheckCircle size={32} />}
+          <div
+            className={`mx-auto mb-3 p-3 rounded-full w-fit ${
+              modalData.type === "error"
+                ? "bg-red-100 text-red-600"
+                : "bg-green-100 text-green-600"
+            }`}
+          >
+            {modalData.type === "error" ? (
+              <AlertTriangle size={32} />
+            ) : (
+              <CheckCircle size={32} />
+            )}
           </div>
           <h5 className="fw-bold mb-2">{modalData.title}</h5>
           <p className="text-muted">{modalData.msg}</p>
-          <Button variant={modalData.type === "error" ? "danger" : "success"} onClick={() => setModalData({ ...modalData, show: false })}>
+          <Button
+            variant={modalData.type === "error" ? "danger" : "success"}
+            onClick={() => setModalData({ ...modalData, show: false })}
+          >
             Tutup
           </Button>
         </Modal.Body>
