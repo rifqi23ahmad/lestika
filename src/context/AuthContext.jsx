@@ -105,7 +105,6 @@ export const AuthProvider = ({ children }) => {
 
     if (data.user) {
       const profile = await getProfile(data.user.id);
-
       const fixedUser = formatUser(data.user, profile);
       setUser(fixedUser);
     }
@@ -115,6 +114,29 @@ export const AuthProvider = ({ children }) => {
 
   const register = (email, password, name, detailData) =>
     authService.register(email, password, name, detailData);
+
+  const verifySignupOtp = async (email, token) => {
+    const data = await authService.verifyRegistration(email, token);
+    if (data.user) {
+      const profile = await getProfile(data.user.id);
+      setUser(formatUser(data.user, profile));
+    }
+    return data;
+  };
+
+  const sendLoginOtp = async (email) => {
+    return await authService.sendOtp(email);
+  };
+
+  const verifyLoginOtp = async (email, token) => {
+    const data = await authService.verifyOtp(email, token);
+
+    if (data.user) {
+      const profile = await getProfile(data.user.id);
+      setUser(formatUser(data.user, profile));
+    }
+    return data;
+  };
 
   const logout = async () => {
     try {
@@ -129,7 +151,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        verifySignupOtp,
+        sendLoginOtp,
+        verifyLoginOtp,
+        logout,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
