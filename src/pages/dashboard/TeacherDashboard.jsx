@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   CheckCircle,
   FileText,
-  PenTool,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
@@ -16,7 +15,6 @@ import ScheduleTab from "../dashboard/teacher/ScheduleTab";
 import GradeTab from "../dashboard/teacher/GradeTab";
 import MaterialTab from "../dashboard/teacher/MaterialTab";
 import QuestionBankTab from "../dashboard/teacher/QuestionBankTab";
-import WhiteboardTab from "../dashboard/teacher/WhiteboardTab"; // IMPORT BARU
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
@@ -82,18 +80,6 @@ export default function TeacherDashboard() {
           }
         >
           <QuestionBankTab user={user} showModal={showModal} />
-        </Tab>
-
-        <Tab
-          eventKey="whiteboard"
-          title={
-            <>
-              <PenTool size={18} className="me-2" />
-              Whiteboard
-            </>
-          }
-        >
-          <WhiteboardTab showModal={showModal} />
         </Tab>
 
         <Tab
