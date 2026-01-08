@@ -56,8 +56,33 @@ export default function SignupView() {
     return () => clearInterval(timer);
   }, [countdown]);
 
-  const handleChange = (e) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    let cleanValue = value;
+
+    if (name === "fullName") {
+      cleanValue = value.replace(/[^a-zA-Z\s]/g, "");
+    }
+
+    if (name === "kelas") {
+      const onlyNums = value.replace(/\D/g, "");
+
+      if (onlyNums === "") {
+        cleanValue = "";
+      } else {
+        if (parseInt(onlyNums) > 12) return;
+        cleanValue = onlyNums;
+      }
+    }
+
+    if (name === "whatsapp") {
+      const onlyNums = value.replace(/\D/g, "");
+      if (onlyNums.length > 12) return;
+      cleanValue = onlyNums;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: cleanValue }));
+  };
 
   const handleResendOtp = async () => {
     if (loading || countdown > 0) return;
@@ -85,25 +110,8 @@ export default function SignupView() {
 
     try {
       if (mode === "register") {
-
-        const nameRegex = /^[a-zA-Z\s]+$/;
-        if (!nameRegex.test(formData.fullName)) {
-          throw new Error(
-            "Nama harus berisi huruf saja (tidak boleh ada angka atau simbol)."
-          );
-        }
-
-        const kelasNum = parseInt(formData.kelas);
-        if (isNaN(kelasNum) || kelasNum > 12) {
-          throw new Error("Kelas tidak boleh lebih dari 12.");
-        }
-
-        const waRegex = /^\d+$/;
-        if (!waRegex.test(formData.whatsapp)) {
-          throw new Error("Nomor WhatsApp harus berupa angka.");
-        }
-        if (formData.whatsapp.length > 12) {
-          throw new Error("Nomor WhatsApp maksimal 12 digit.");
+        if (!formData.fullName.trim()) {
+          throw new Error("Nama lengkap wajib diisi.");
         }
 
         const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)/;
@@ -117,6 +125,9 @@ export default function SignupView() {
           throw new Error("Password konfirmasi tidak cocok!");
         }
 
+        if (formData.whatsapp.length < 10) {
+          throw new Error("Nomor WhatsApp minimal 10 digit.");
+        }
 
         const { data: isRegistered, error: rpcError } = await supabase.rpc(
           "check_email_exists",
@@ -227,7 +238,8 @@ export default function SignupView() {
                       icon={Phone}
                       name="whatsapp"
                       type="tel"
-                      placeholder="WhatsApp"
+                      inputMode="numeric"
+                      placeholder="No WhatsApp"
                       required
                       value={formData.whatsapp}
                       onChange={handleChange}
@@ -259,8 +271,9 @@ export default function SignupView() {
                     <FormInput
                       icon={BookOpen}
                       name="kelas"
-                      type="number"
-                      placeholder="Kelas"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Kelas (Maks 12)"
                       required
                       value={formData.kelas}
                       onChange={handleChange}
