@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { authService } from "../services/authService";
 import { supabase } from "../lib/supabase";
+import { APP_CONFIG } from "../config/constants"; // Pastikan import ini ada
 
 const AuthContext = createContext(null);
 
@@ -9,40 +10,69 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const formatUser = (sessionUser, profile = null) => {
+    if (!sessionUser) return null;
+
+    const identityData = sessionUser.identities?.[0]?.identity_data || {};
+
     const rawRole =
       profile?.role ||
       sessionUser.user_metadata?.role ||
+      identityData?.role ||
       sessionUser.app_metadata?.role;
+
+    const validRoles = Object.values(APP_CONFIG.ROLES); // ['admin', 'guru', 'siswa']
+    let finalRole = "siswa";
+
+    if (rawRole && validRoles.includes(rawRole.toLowerCase())) {
+      finalRole = rawRole.toLowerCase();
+    }
 
     const rawName =
       profile?.full_name ||
       sessionUser.user_metadata?.full_name ||
       sessionUser.user_metadata?.name ||
+      identityData?.full_name ||
       sessionUser.email;
 
     return {
       id: sessionUser.id,
       email: sessionUser.email,
-      role: rawRole ? rawRole.toLowerCase() : "siswa",
+      role: finalRole,
       name: rawName,
-      jenjang: profile?.jenjang,
-      kelas: profile?.kelas,
-      whatsapp: profile?.whatsapp,
+      jenjang: profile?.jenjang || identityData?.jenjang,
+      kelas: profile?.kelas || identityData?.kelas,
+      whatsapp: profile?.whatsapp || identityData?.whatsapp,
     };
   };
 
   const getProfile = async (userId) => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .single();
-
-      if (error && error.code !== "PGRST116")
-        console.warn("Profile fetch error:", error);
       return data;
     } catch (err) {
+      return null;
+    }
+  };
+
+  const fetchUserFromServer = async () => {
+    try {
+      const {
+        data: { user: authUser },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error || !authUser) {
+        return null;
+      }
+
+      const profile = await getProfile(authUser.id);
+      return formatUser(authUser, profile);
+    } catch (error) {
+      console.error("Fetch user error:", error);
       return null;
     }
   };
@@ -52,22 +82,18 @@ export const AuthProvider = ({ children }) => {
 
     const initializeAuth = async () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const serverUser = await fetchUserFromServer();
 
-        if (session?.user) {
-          if (mounted) setUser(formatUser(session.user));
+        if (mounted) {
+          setUser(serverUser);
 
-          const profile = await getProfile(session.user.id);
-          if (mounted && profile) {
-            setUser(formatUser(session.user, profile));
+          if (!serverUser) {
+            await supabase.auth.signOut();
+            localStorage.clear();
           }
-        } else {
-          if (mounted) setUser(null);
         }
-      } catch (error) {
-        console.error("Auth init error:", error);
+      } catch (err) {
+        if (mounted) setUser(null);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -82,13 +108,12 @@ export const AuthProvider = ({ children }) => {
 
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         if (session?.user) {
-          setUser((prev) => {
-            if (event === "TOKEN_REFRESHED") return formatUser(session.user);
-            return prev || formatUser(session.user);
-          });
+          const profile = await getProfile(session.user.id);
+          setUser(formatUser(session.user, profile));
         }
       } else if (event === "SIGNED_OUT") {
         setUser(null);
+        setLoading(false);
         sessionStorage.clear();
         localStorage.clear();
       }
@@ -102,13 +127,10 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const data = await authService.login(email, password);
-
     if (data.user) {
       const profile = await getProfile(data.user.id);
-      const fixedUser = formatUser(data.user, profile);
-      setUser(fixedUser);
+      setUser(formatUser(data.user, profile));
     }
-
     return data;
   };
 
@@ -124,18 +146,28 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  const sendLoginOtp = async (email) => {
-    return await authService.sendOtp(email);
-  };
+  const sendLoginOtp = async (email) => authService.sendOtp(email);
 
   const verifyLoginOtp = async (email, token) => {
     const data = await authService.verifyOtp(email, token);
-
     if (data.user) {
       const profile = await getProfile(data.user.id);
       setUser(formatUser(data.user, profile));
     }
     return data;
+  };
+
+  const resetPassword = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + "/update-password",
+    });
+    if (error) throw error;
+  };
+
+  const updateUserPassword = async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    await logout();
   };
 
   const logout = async () => {
@@ -159,6 +191,8 @@ export const AuthProvider = ({ children }) => {
         verifySignupOtp,
         sendLoginOtp,
         verifyLoginOtp,
+        resetPassword,
+        updateUserPassword,
         logout,
         loading,
       }}
