@@ -106,18 +106,20 @@ export const invoiceService = {
     }
   },
 
-  // --- FUNGSI BARU UNTUK KONFIRMASI VIA RPC ---
-  async confirmPayment(invoiceId) {
+  async confirmPayment(invoiceId, pdfBase64 = null) {
     try {
-      // Memanggil fungsi SQL 'confirm_payment_with_email'
-      // Fungsi ini akan update DB dan trigger HTTP request ke Resend
-      const { data, error } = await supabase.rpc('confirm_payment_with_email', {
-        invoice_id: invoiceId
-      });
+      const payload = {
+        invoice_id: invoiceId,
+        pdf_base64: pdfBase64,
+      };
+
+      const { data, error } = await supabase.rpc(
+        "confirm_payment_with_email",
+        payload
+      );
 
       if (error) throw error;
 
-      // Cek respon JSON dari fungsi SQL
       if (!data.success) {
         throw new Error(data.message || "Gagal mengkonfirmasi pembayaran");
       }
@@ -127,5 +129,5 @@ export const invoiceService = {
       console.error("Service Confirmation Error:", error);
       throw error;
     }
-  }
+  },
 };

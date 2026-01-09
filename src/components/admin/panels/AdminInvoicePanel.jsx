@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, Table, Button, Badge, Spinner } from "react-bootstrap";
 import { CheckCircle, XCircle, Eye } from "lucide-react";
-import { supabase } from "../../../lib/supabase"; 
-import { invoiceService } from "../../../services/invoiceService"; // Pastikan import service ini
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import { supabase } from "../../../lib/supabase";
+import { invoiceService } from "../../../services/invoiceService";
+import InvoicePaper from "../../invoice/InvoicePaper";
 
 export default function AdminInvoicePanel({
   showInfo,
@@ -10,7 +13,10 @@ export default function AdminInvoicePanel({
   onInvoiceUpdate,
 }) {
   const [invoices, setInvoices] = useState([]);
-  const [loadingId, setLoadingId] = useState(null); // Untuk spinner di tombol spesifik
+  const [loadingId, setLoadingId] = useState(null);
+
+  const [tempInvoice, setTempInvoice] = useState(null);
+  const pdfPrintRef = useRef();
 
   useEffect(() => {
     loadInvoices();
@@ -25,31 +31,84 @@ export default function AdminInvoicePanel({
     if (onInvoiceUpdate) onInvoiceUpdate(data || []);
   };
 
-  const handleConfirmPayment = (id) => {
+  const generatePdfBase64 = async (invoiceData) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        setTempInvoice(invoiceData);
+
+        setTimeout(async () => {
+          const element = pdfPrintRef.current;
+          if (!element)
+            return reject("Element PDF tidak ditemukan/gagal render");
+
+          const canvas = await html2canvas(element, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            windowWidth: 1000, 
+          });
+
+          const imgWidth = 210; 
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          const pdf = new jsPDF("p", "mm", "a4");
+          const imgData = canvas.toDataURL("image/jpeg", 0.7);
+
+          pdf.addImage(
+            imgData,
+            "JPEG",
+            0,
+            0,
+            imgWidth,
+            imgHeight,
+            undefined,
+            "FAST"
+          );
+
+          const pdfOutput = pdf.output("datauristring");
+          const base64String = pdfOutput.split(",")[1];
+
+          setTempInvoice(null);
+          resolve(base64String);
+        }, 500); 
+      } catch (err) {
+        setTempInvoice(null);
+        reject(err);
+      }
+    });
+  };
+
+  const handleConfirmPayment = (invoice) => {
     showConfirm(
       "Terima Pembayaran",
-      "Sistem akan mengaktifkan paket dan mengirim email invoice ke siswa secara otomatis.",
+      "Sistem akan mengaktifkan paket, membuat PDF invoice, dan mengirim email.",
       "success",
       async () => {
         try {
-          setLoadingId(id); // Aktifkan loading di tombol
+          setLoadingId(invoice.id);
 
-          // Panggil service yang menggunakan RPC Database
-          await invoiceService.confirmPayment(id);
+          const invoiceForPdf = {
+            ...invoice,
+            status: "paid",
+            payment_date: new Date().toISOString(),
+          };
 
-          // Refresh data
+          const pdfBase64 = await generatePdfBase64(invoiceForPdf);
+
+          await invoiceService.confirmPayment(invoice.id, pdfBase64);
+
           await loadInvoices();
-          
+
           showInfo(
             "Sukses",
-            "Pembayaran dikonfirmasi. Paket aktif & Invoice terkirim ke email siswa.",
+            "Pembayaran dikonfirmasi & Invoice (LUNAS) terkirim.",
             "success"
           );
         } catch (error) {
           console.error(error);
-          showInfo("Gagal", error.message || "Terjadi kesalahan sistem.", "danger");
+          showInfo("Gagal", error.message || "Terjadi kesalahan.", "danger");
         } finally {
-          setLoadingId(null); // Matikan loading
+          setLoadingId(null);
+          setTempInvoice(null);
         }
       }
     );
@@ -85,6 +144,12 @@ export default function AdminInvoicePanel({
 
   return (
     <Card className="shadow-sm border-0">
+      <div style={{ position: "absolute", top: "-10000px", left: "-10000px" }}>
+        {tempInvoice && (
+          <InvoicePaper ref={pdfPrintRef} invoice={tempInvoice} />
+        )}
+      </div>
+
       <Card.Header className="bg-white py-3">
         <h5 className="mb-0 fw-bold">Konfirmasi Pembayaran</h5>
       </Card.Header>
@@ -153,7 +218,7 @@ export default function AdminInvoicePanel({
                       <Button
                         size="sm"
                         variant="success"
-                        onClick={() => handleConfirmPayment(inv.id)}
+                        onClick={() => handleConfirmPayment(inv)}
                         title="Terima"
                         disabled={loadingId === inv.id}
                       >
