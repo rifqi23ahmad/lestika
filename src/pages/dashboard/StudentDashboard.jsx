@@ -22,12 +22,11 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
-
 import StudentInfoCard from "./student/StudentInfoCard";
 import StudentScheduleTab from "./student/StudentScheduleTab";
 import StudentMaterialsTab from "./student/StudentMaterialsTab";
 import StudentGradesTab from "./student/StudentGradesTab";
-import ExerciseTab from "./student/ExerciseTab"; // Sudah dibuat sebelumnya
+import ExerciseTab from "./student/ExerciseTab";
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -45,6 +44,7 @@ export default function StudentDashboard() {
     msg: "",
     type: "success",
   });
+
   const showModal = (title, msg, type = "success") =>
     setInfoModal({ show: true, title, msg, type });
 
@@ -57,6 +57,7 @@ export default function StudentDashboard() {
           .select("*")
           .order("created_at", { ascending: false })
           .limit(1);
+          
         if (user.id) query = query.eq("user_id", user.id);
         else query = query.eq("email", user.email);
 
@@ -83,6 +84,7 @@ export default function StudentDashboard() {
   const handleSubmitReview = async () => {
     if (!reviewForm.content)
       return showModal("Gagal", "Isi ulasan Anda!", "error");
+    
     setSubmittingReview(true);
     try {
       await supabase
@@ -92,6 +94,7 @@ export default function StudentDashboard() {
           rating: reviewForm.rating,
           content: reviewForm.content,
         });
+        
       setReviewModal(false);
       showModal("Terima Kasih!", "Ulasan terkirim.", "success");
       setReviewForm({ rating: 5, content: "" });
@@ -104,6 +107,7 @@ export default function StudentDashboard() {
 
   if (loading)
     return <div className="p-4 text-center">Memuat dashboard...</div>;
+
   if (!activeInvoice)
     return (
       <Alert variant="warning" className="p-4">
@@ -113,6 +117,7 @@ export default function StudentDashboard() {
         </Button>
       </Alert>
     );
+
   if (isExpired)
     return (
       <Alert variant="danger" className="text-center p-5">
@@ -122,6 +127,7 @@ export default function StudentDashboard() {
         </Button>
       </Alert>
     );
+
   if (activeInvoice.status !== "paid")
     return (
       <Alert variant="info" className="text-center p-5">
@@ -136,6 +142,7 @@ export default function StudentDashboard() {
     <Row className="g-4">
       <Col xs={12}>
         <StudentInfoCard
+          user={user} 
           activeInvoice={activeInvoice}
           onReviewClick={() => setReviewModal(true)}
         />
@@ -226,7 +233,7 @@ export default function StudentDashboard() {
             onChange={(e) =>
               setReviewForm({ ...reviewForm, content: e.target.value })
             }
-            placeholder="Tulis ulasan..."
+            placeholder="Tulis ulasan pengalaman belajar Anda..."
           />
         </Modal.Body>
         <Modal.Footer>

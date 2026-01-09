@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Navbar, Container, Nav, Button, Dropdown } from "react-bootstrap";
 import { LayoutDashboard, LogOut, User, FileText } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -8,24 +8,54 @@ export default function AppNavbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  const [expanded, setExpanded] = useState(false);
+
+  const navRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (navRef.current && !navRef.current.contains(event.target)) {
+        setExpanded(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [navRef]);
+
   const handleLogout = async () => {
     await logout();
     navigate("/");
+    setExpanded(false); 
+  };
+
+  const handleNavClick = (path) => {
+    navigate(path);
+    setExpanded(false);
   };
 
   return (
-    <Navbar bg="white" expand="lg" className="shadow-sm sticky-top py-3">
+    <Navbar
+      ref={navRef} 
+      expanded={expanded} 
+      bg="white"
+      expand="lg"
+      className="shadow-sm sticky-top py-3"
+    >
       <Container>
         <Navbar.Brand
           href="#"
           onClick={(e) => {
             e.preventDefault();
-            navigate("/");
+            handleNavClick("/");
           }}
           className="d-flex align-items-center fw-bold text-primary fs-4"
         >
           <img
-            src="/logo.png" // Pastikan file logo.png ada di folder public
+            src="/logo.png"
             alt="Logo MAPA"
             width="32"
             height="32"
@@ -35,6 +65,7 @@ export default function AppNavbar() {
         </Navbar.Brand>
 
         <Navbar.Toggle
+          onClick={() => setExpanded(expanded ? false : "expanded")}
           aria-controls="basic-navbar-nav"
           className="border-0 shadow-none"
         />
@@ -45,7 +76,7 @@ export default function AppNavbar() {
               href="#"
               onClick={(e) => {
                 e.preventDefault();
-                navigate("/");
+                handleNavClick("/");
               }}
               className="fw-medium text-dark px-3"
             >
@@ -57,7 +88,7 @@ export default function AppNavbar() {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
-                  navigate("/jadwal");
+                  handleNavClick("/jadwal");
                 }}
                 className="fw-medium text-dark px-3 d-flex align-items-center"
               >
@@ -78,9 +109,7 @@ export default function AppNavbar() {
 
                 <Dropdown.Menu className="shadow-sm border-0 mt-2">
                   <Dropdown.Item
-                    onClick={() => {
-                      navigate("/dashboard");
-                    }}
+                    onClick={() => handleNavClick("/dashboard")}
                     className="d-flex align-items-center py-2"
                   >
                     <LayoutDashboard size={16} className="me-2 text-muted" />{" "}
@@ -89,7 +118,7 @@ export default function AppNavbar() {
 
                   {user.role === "siswa" && (
                     <Dropdown.Item
-                      onClick={() => navigate("/invoice")}
+                      onClick={() => handleNavClick("/invoice")}
                       className="d-flex align-items-center py-2"
                     >
                       <FileText size={16} className="me-2 text-muted" /> Tagihan
@@ -110,14 +139,14 @@ export default function AppNavbar() {
               <div className="d-flex gap-2 mt-3 mt-lg-0">
                 <Button
                   variant="outline-primary"
-                  onClick={() => navigate("/signup")}
+                  onClick={() => handleNavClick("/signup")}
                   className="px-4 py-2 fw-bold rounded-pill"
                 >
                   Daftar
                 </Button>
                 <Button
                   variant="primary"
-                  onClick={() => navigate("/login")}
+                  onClick={() => handleNavClick("/login")}
                   className="px-4 py-2 fw-bold rounded-pill shadow-sm"
                 >
                   Masuk
