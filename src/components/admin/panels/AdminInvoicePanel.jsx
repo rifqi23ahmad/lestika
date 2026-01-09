@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { Card, Table, Button, Badge } from "react-bootstrap";
+import React, { useState, useEffect, useRef } from "react";
+import { Card, Table, Button, Badge, Spinner } from "react-bootstrap";
 import { CheckCircle, XCircle, Eye } from "lucide-react";
-import { supabase } from "../../../lib/supabase"; // Adjust path
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import { supabase } from "../../../lib/supabase";
+import { invoiceService } from "../../../services/invoiceService";
+import InvoicePaper from "../../invoice/InvoicePaper";
 
 export default function AdminInvoicePanel({
   showInfo,
@@ -9,6 +13,10 @@ export default function AdminInvoicePanel({
   onInvoiceUpdate,
 }) {
   const [invoices, setInvoices] = useState([]);
+  const [loadingId, setLoadingId] = useState(null);
+
+  const [tempInvoice, setTempInvoice] = useState(null);
+  const pdfPrintRef = useRef();
 
   useEffect(() => {
     loadInvoices();
@@ -23,35 +31,85 @@ export default function AdminInvoicePanel({
     if (onInvoiceUpdate) onInvoiceUpdate(data || []);
   };
 
-  const handleConfirmPayment = (id) => {
+  const generatePdfBase64 = async (invoiceData) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        setTempInvoice(invoiceData);
+
+        setTimeout(async () => {
+          const element = pdfPrintRef.current;
+          if (!element)
+            return reject("Element PDF tidak ditemukan/gagal render");
+
+          const canvas = await html2canvas(element, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            windowWidth: 1000, 
+          });
+
+          const imgWidth = 210; 
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          const pdf = new jsPDF("p", "mm", "a4");
+          const imgData = canvas.toDataURL("image/jpeg", 0.7);
+
+          pdf.addImage(
+            imgData,
+            "JPEG",
+            0,
+            0,
+            imgWidth,
+            imgHeight,
+            undefined,
+            "FAST"
+          );
+
+          const pdfOutput = pdf.output("datauristring");
+          const base64String = pdfOutput.split(",")[1];
+
+          setTempInvoice(null);
+          resolve(base64String);
+        }, 500); 
+      } catch (err) {
+        setTempInvoice(null);
+        reject(err);
+      }
+    });
+  };
+
+  const handleConfirmPayment = (invoice) => {
     showConfirm(
       "Terima Pembayaran",
-      "Pastikan bukti valid. Paket akan otomatis aktif selama 30 hari.",
+      "Sistem akan mengaktifkan paket, membuat PDF invoice, dan mengirim email.",
       "success",
       async () => {
-        const startDate = new Date();
-        const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 30);
+        try {
+          setLoadingId(invoice.id);
 
-        const { data: dataPaid, error: errPaid } = await supabase
-          .from("invoices")
-          .update({
+          const invoiceForPdf = {
+            ...invoice,
             status: "paid",
-            expiry_date: endDate.toISOString(),
-          })
-          .eq("id", id)
-          .select();
+            payment_date: new Date().toISOString(),
+          };
 
-        if (errPaid) throw errPaid;
-        if (!dataPaid || dataPaid.length === 0)
-          throw new Error("Gagal update (Cek RLS Policy Supabase).");
+          const pdfBase64 = await generatePdfBase64(invoiceForPdf);
 
-        loadInvoices();
-        showInfo(
-          "Pembayaran Diterima",
-          "Paket siswa telah diaktifkan selama 30 hari.",
-          "success"
-        );
+          await invoiceService.confirmPayment(invoice.id, pdfBase64);
+
+          await loadInvoices();
+
+          showInfo(
+            "Sukses",
+            "Pembayaran dikonfirmasi & Invoice (LUNAS) terkirim.",
+            "success"
+          );
+        } catch (error) {
+          console.error(error);
+          showInfo("Gagal", error.message || "Terjadi kesalahan.", "danger");
+        } finally {
+          setLoadingId(null);
+          setTempInvoice(null);
+        }
       }
     );
   };
@@ -62,26 +120,36 @@ export default function AdminInvoicePanel({
       "Status akan kembali ke Unpaid dan bukti dihapus.",
       "danger",
       async () => {
-        const { error: errReject } = await supabase
-          .from("invoices")
-          .update({ status: "unpaid", payment_proof_url: null })
-          .eq("id", id)
-          .select();
+        try {
+          const { error: errReject } = await supabase
+            .from("invoices")
+            .update({ status: "unpaid", payment_proof_url: null })
+            .eq("id", id)
+            .select();
 
-        if (errReject) throw errReject;
+          if (errReject) throw errReject;
 
-        loadInvoices();
-        showInfo(
-          "Pembayaran Ditolak",
-          "Bukti dihapus & status kembali ke Unpaid.",
-          "info"
-        );
+          loadInvoices();
+          showInfo(
+            "Pembayaran Ditolak",
+            "Bukti dihapus & status kembali ke Unpaid.",
+            "info"
+          );
+        } catch (error) {
+          showInfo("Error", "Gagal menolak pembayaran.", "danger");
+        }
       }
     );
   };
 
   return (
     <Card className="shadow-sm border-0">
+      <div style={{ position: "absolute", top: "-10000px", left: "-10000px" }}>
+        {tempInvoice && (
+          <InvoicePaper ref={pdfPrintRef} invoice={tempInvoice} />
+        )}
+      </div>
+
       <Card.Header className="bg-white py-3">
         <h5 className="mb-0 fw-bold">Konfirmasi Pembayaran</h5>
       </Card.Header>
@@ -150,16 +218,22 @@ export default function AdminInvoicePanel({
                       <Button
                         size="sm"
                         variant="success"
-                        onClick={() => handleConfirmPayment(inv.id)}
+                        onClick={() => handleConfirmPayment(inv)}
                         title="Terima"
+                        disabled={loadingId === inv.id}
                       >
-                        <CheckCircle size={16} />
+                        {loadingId === inv.id ? (
+                          <Spinner size="sm" animation="border" />
+                        ) : (
+                          <CheckCircle size={16} />
+                        )}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline-danger"
                         onClick={() => handleRejectPayment(inv.id)}
                         title="Tolak"
+                        disabled={loadingId === inv.id}
                       >
                         <XCircle size={16} />
                       </Button>

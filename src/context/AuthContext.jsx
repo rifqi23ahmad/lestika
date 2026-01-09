@@ -1,12 +1,20 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { authService } from "../services/authService";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { supabase } from "../lib/supabase";
+import { authService } from "../services/authService";
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const hydratedRef = useRef(false);
 
   const formatUser = (sessionUser, profile = null) => {
     const rawRole =
@@ -23,7 +31,7 @@ export const AuthProvider = ({ children }) => {
     return {
       id: sessionUser.id,
       email: sessionUser.email,
-      role: rawRole ? rawRole.toLowerCase() : "siswa",
+      role: rawRole?.toLowerCase() ?? "siswa",
       name: rawName,
       jenjang: profile?.jenjang,
       kelas: profile?.kelas,
@@ -39,12 +47,21 @@ export const AuthProvider = ({ children }) => {
         .eq("id", userId)
         .single();
 
-      if (error && error.code !== "PGRST116")
+      if (error && error.code !== "PGRST116") {
         console.warn("Profile fetch error:", error);
-      return data;
-    } catch (err) {
+      }
+
+      return data ?? null;
+    } catch {
       return null;
     }
+  };
+
+  const hydrateUser = async (sessionUser) => {
+    if (!sessionUser) return null;
+
+    const profile = await getProfile(sessionUser.id);
+    return formatUser(sessionUser, profile);
   };
 
   useEffect(() => {
@@ -56,18 +73,20 @@ export const AuthProvider = ({ children }) => {
           data: { session },
         } = await supabase.auth.getSession();
 
-        if (session?.user) {
-          if (mounted) setUser(formatUser(session.user));
+        if (!mounted) return;
 
-          const profile = await getProfile(session.user.id);
-          if (mounted && profile) {
-            setUser(formatUser(session.user, profile));
+        if (session?.user && !hydratedRef.current) {
+          hydratedRef.current = true;
+
+          setUser(formatUser(session.user));
+
+          const fullUser = await hydrateUser(session.user);
+          if (mounted && fullUser) {
+            setUser(fullUser);
           }
-        } else {
-          if (mounted) setUser(null);
         }
       } catch (error) {
-        console.error("Auth init error:", error);
+        console.error("Auth initialization error:", error);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -77,20 +96,24 @@ export const AuthProvider = ({ children }) => {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
 
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        if (session?.user) {
-          setUser((prev) => {
-            if (event === "TOKEN_REFRESHED") return formatUser(session.user);
-            return prev || formatUser(session.user);
-          });
-        }
-      } else if (event === "SIGNED_OUT") {
+      if (event === "SIGNED_OUT") {
+        hydratedRef.current = false;
         setUser(null);
-        sessionStorage.clear();
         localStorage.clear();
+        sessionStorage.clear();
+        return;
+      }
+
+      if (event === "TOKEN_REFRESHED" && session?.user) {
+        setUser((prev) => {
+          if (!prev || prev.id !== session.user.id) {
+            return formatUser(session.user);
+          }
+          return prev;
+        });
       }
     });
 
@@ -104,9 +127,9 @@ export const AuthProvider = ({ children }) => {
     const data = await authService.login(email, password);
 
     if (data.user) {
-      const profile = await getProfile(data.user.id);
-      const fixedUser = formatUser(data.user, profile);
-      setUser(fixedUser);
+      hydratedRef.current = true;
+      const fullUser = await hydrateUser(data.user);
+      setUser(fullUser);
     }
 
     return data;
@@ -117,36 +140,54 @@ export const AuthProvider = ({ children }) => {
 
   const verifySignupOtp = async (email, token) => {
     const data = await authService.verifyRegistration(email, token);
+
     if (data.user) {
-      const profile = await getProfile(data.user.id);
-      setUser(formatUser(data.user, profile));
+      hydratedRef.current = true;
+      const fullUser = await hydrateUser(data.user);
+      setUser(fullUser);
     }
+
     return data;
   };
 
-  const sendLoginOtp = async (email) => {
-    return await authService.sendOtp(email);
-  };
+  const sendLoginOtp = (email) => authService.sendOtp(email);
 
   const verifyLoginOtp = async (email, token) => {
     const data = await authService.verifyOtp(email, token);
 
     if (data.user) {
-      const profile = await getProfile(data.user.id);
-      setUser(formatUser(data.user, profile));
+      hydratedRef.current = true;
+      const fullUser = await hydrateUser(data.user);
+      setUser(fullUser);
     }
+
     return data;
+  };
+
+  const resetPassword = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/update-password`,
+    });
+    if (error) throw error;
+  };
+
+  const updateUserPassword = async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    if (error) throw error;
+
+    await logout();
   };
 
   const logout = async () => {
     try {
       await authService.logout();
-    } catch (error) {
-      console.error("Logout error (ignored):", error);
     } finally {
+      hydratedRef.current = false;
+      setUser(null);
       localStorage.clear();
       sessionStorage.clear();
-      setUser(null);
     }
   };
 
@@ -154,13 +195,15 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
+        loading,
         login,
         register,
         verifySignupOtp,
         sendLoginOtp,
         verifyLoginOtp,
+        resetPassword,
+        updateUserPassword,
         logout,
-        loading,
       }}
     >
       {children}

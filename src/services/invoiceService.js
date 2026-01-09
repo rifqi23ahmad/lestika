@@ -105,4 +105,29 @@ export const invoiceService = {
       throw error;
     }
   },
+
+  async confirmPayment(invoiceId, pdfBase64 = null) {
+    try {
+      const payload = {
+        invoice_id: invoiceId,
+        pdf_base64: pdfBase64,
+      };
+
+      const { data, error } = await supabase.rpc(
+        "confirm_payment_with_email",
+        payload
+      );
+
+      if (error) throw error;
+
+      if (!data.success) {
+        throw new Error(data.message || "Gagal mengkonfirmasi pembayaran");
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Service Confirmation Error:", error);
+      throw error;
+    }
+  },
 };

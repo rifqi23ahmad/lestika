@@ -15,6 +15,7 @@ import DashboardManager from "./pages/dashboard/DashboardManager";
 import StudentDashboard from "./pages/dashboard/StudentDashboard";
 import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
+import UpdatePasswordView from "./pages/UpdatePasswordView";
 
 import WhatsAppBubble from "./components/layout/WhatsAppBubble";
 
@@ -65,6 +66,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/update-password" element={<UpdatePasswordView />} />
 
           <Route
             path="/student/dashboard"
