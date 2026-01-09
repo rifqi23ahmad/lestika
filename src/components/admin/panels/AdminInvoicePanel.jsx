@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Card, Table, Button, Badge } from "react-bootstrap";
+import { Card, Table, Button, Badge, Spinner } from "react-bootstrap";
 import { CheckCircle, XCircle, Eye } from "lucide-react";
-import { supabase } from "../../../lib/supabase"; // Adjust path
+import { supabase } from "../../../lib/supabase"; 
+import { invoiceService } from "../../../services/invoiceService"; // Pastikan import service ini
 
 export default function AdminInvoicePanel({
   showInfo,
@@ -9,6 +10,7 @@ export default function AdminInvoicePanel({
   onInvoiceUpdate,
 }) {
   const [invoices, setInvoices] = useState([]);
+  const [loadingId, setLoadingId] = useState(null); // Untuk spinner di tombol spesifik
 
   useEffect(() => {
     loadInvoices();
@@ -26,32 +28,29 @@ export default function AdminInvoicePanel({
   const handleConfirmPayment = (id) => {
     showConfirm(
       "Terima Pembayaran",
-      "Pastikan bukti valid. Paket akan otomatis aktif selama 30 hari.",
+      "Sistem akan mengaktifkan paket dan mengirim email invoice ke siswa secara otomatis.",
       "success",
       async () => {
-        const startDate = new Date();
-        const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 30);
+        try {
+          setLoadingId(id); // Aktifkan loading di tombol
 
-        const { data: dataPaid, error: errPaid } = await supabase
-          .from("invoices")
-          .update({
-            status: "paid",
-            expiry_date: endDate.toISOString(),
-          })
-          .eq("id", id)
-          .select();
+          // Panggil service yang menggunakan RPC Database
+          await invoiceService.confirmPayment(id);
 
-        if (errPaid) throw errPaid;
-        if (!dataPaid || dataPaid.length === 0)
-          throw new Error("Gagal update (Cek RLS Policy Supabase).");
-
-        loadInvoices();
-        showInfo(
-          "Pembayaran Diterima",
-          "Paket siswa telah diaktifkan selama 30 hari.",
-          "success"
-        );
+          // Refresh data
+          await loadInvoices();
+          
+          showInfo(
+            "Sukses",
+            "Pembayaran dikonfirmasi. Paket aktif & Invoice terkirim ke email siswa.",
+            "success"
+          );
+        } catch (error) {
+          console.error(error);
+          showInfo("Gagal", error.message || "Terjadi kesalahan sistem.", "danger");
+        } finally {
+          setLoadingId(null); // Matikan loading
+        }
       }
     );
   };
@@ -62,20 +61,24 @@ export default function AdminInvoicePanel({
       "Status akan kembali ke Unpaid dan bukti dihapus.",
       "danger",
       async () => {
-        const { error: errReject } = await supabase
-          .from("invoices")
-          .update({ status: "unpaid", payment_proof_url: null })
-          .eq("id", id)
-          .select();
+        try {
+          const { error: errReject } = await supabase
+            .from("invoices")
+            .update({ status: "unpaid", payment_proof_url: null })
+            .eq("id", id)
+            .select();
 
-        if (errReject) throw errReject;
+          if (errReject) throw errReject;
 
-        loadInvoices();
-        showInfo(
-          "Pembayaran Ditolak",
-          "Bukti dihapus & status kembali ke Unpaid.",
-          "info"
-        );
+          loadInvoices();
+          showInfo(
+            "Pembayaran Ditolak",
+            "Bukti dihapus & status kembali ke Unpaid.",
+            "info"
+          );
+        } catch (error) {
+          showInfo("Error", "Gagal menolak pembayaran.", "danger");
+        }
       }
     );
   };
@@ -152,14 +155,20 @@ export default function AdminInvoicePanel({
                         variant="success"
                         onClick={() => handleConfirmPayment(inv.id)}
                         title="Terima"
+                        disabled={loadingId === inv.id}
                       >
-                        <CheckCircle size={16} />
+                        {loadingId === inv.id ? (
+                          <Spinner size="sm" animation="border" />
+                        ) : (
+                          <CheckCircle size={16} />
+                        )}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline-danger"
                         onClick={() => handleRejectPayment(inv.id)}
                         title="Tolak"
+                        disabled={loadingId === inv.id}
                       >
                         <XCircle size={16} />
                       </Button>
