@@ -19,6 +19,8 @@ import {
   FileText,
   ZoomIn,
   ZoomOut,
+  Sparkles, // Icon baru untuk AI
+  Loader2,  // Icon loading
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
@@ -179,6 +181,12 @@ export default function QuestionBankTab({ user, showModal }) {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewQuestion, setPreviewQuestion] = useState(null);
 
+  // --- AI State ---
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiTopic, setAiTopic] = useState("");
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  // ----------------
+
   const [qForm, setQForm] = useState({
     text: "",
     options: [
@@ -338,6 +346,58 @@ export default function QuestionBankTab({ user, showModal }) {
     }
   };
 
+  // --- AI Handler ---
+  const handleGenerateAI = async () => {
+    if (!aiTopic) return alert("Mohon isi topik terlebih dahulu");
+    if (!activePackage) return alert("Pilih paket soal terlebih dahulu!");
+
+    setIsGeneratingAi(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "generate-questions",
+        {
+          body: {
+            topic: aiTopic,
+            amount: 5,
+            jenjang: activePackage.level, 
+            kelas: "Umum", 
+          },
+        }
+      );
+
+      if (error) throw error;
+
+      // Format data untuk insert ke database
+      const newQuestions = data.data.map((q) => ({
+        package_id: activePackage.id,
+        question_text: q.question,
+        options: q.options.map((opt, idx) => ({
+          text: opt,
+          is_correct: opt === q.correct_answer,
+        })),
+        explanation_text: q.explanation,
+      }));
+
+      // Insert ke Supabase
+      const { error: insertError } = await supabase
+        .from("questions")
+        .insert(newQuestions);
+
+      if (insertError) throw insertError;
+
+      showModal("Sukses", "Berhasil membuat 5 soal otomatis!", "success");
+      setShowAiModal(false);
+      setAiTopic(""); // Reset input
+      fetchQuestions(activePackage.id); // Refresh tabel
+    } catch (err) {
+      console.error(err);
+      showModal("Gagal", "Gagal generate soal: " + err.message, "error");
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+  // ------------------
+
   const handleOpenPreview = (q) => {
     setPreviewQuestion(q);
     setShowPreviewModal(true);
@@ -418,12 +478,22 @@ export default function QuestionBankTab({ user, showModal }) {
                     <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                       <strong>Soal ({questions.length})</strong>
                       <div className="d-flex gap-2">
+                        {/* Tombol AI Baru */}
+                        <Button 
+                          variant="outline-primary" 
+                          className="d-flex align-items-center gap-2"
+                          size="sm"
+                          onClick={() => setShowAiModal(true)}
+                        >
+                          <Sparkles size={16} />
+                          Generate via AI
+                        </Button>
                         <Button
                           variant="success"
                           size="sm"
                           onClick={openAddModal}
                         >
-                          <Plus size={14} /> Tambah Soal Manual
+                          <Plus size={14} /> Tambah Manual
                         </Button>
                       </div>
                     </div>
@@ -506,6 +576,51 @@ export default function QuestionBankTab({ user, showModal }) {
           ))}
         </Row>
       )}
+
+      {/* --- Modal untuk Generate AI --- */}
+      <Modal show={showAiModal} onHide={() => setShowAiModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center gap-2">
+            <Sparkles className="text-primary" size={20} />
+            Generate Soal Otomatis
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label>Topik atau Materi Soal</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              placeholder="Contoh: Trigonometri dasar, Hukum Newton, atau paste materi ringkas di sini..."
+              value={aiTopic}
+              onChange={(e) => setAiTopic(e.target.value)}
+            />
+            <Form.Text className="text-muted">
+              AI akan membuatkan 5 soal pilihan ganda beserta kunci jawaban berdasarkan topik ini.
+            </Form.Text>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAiModal(false)}>
+            Batal
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleGenerateAI} 
+            disabled={isGeneratingAi}
+          >
+            {isGeneratingAi ? (
+              <>
+                <Loader2 className="animate-spin me-2" size={16} />
+                Sedang Membuat...
+              </>
+            ) : (
+              "Generate Sekarang"
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+      {/* ------------------------------- */}
 
       <Modal
         show={showPreviewModal}
