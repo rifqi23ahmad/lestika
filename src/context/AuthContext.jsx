@@ -1,3 +1,4 @@
+// src/context/AuthContext.jsx
 import React, {
   createContext,
   useContext,
@@ -36,6 +37,7 @@ export const AuthProvider = ({ children }) => {
       jenjang: profile?.jenjang,
       kelas: profile?.kelas,
       whatsapp: profile?.whatsapp,
+      avatar_url: profile?.avatar_url || "",
     };
   };
 
@@ -59,7 +61,6 @@ export const AuthProvider = ({ children }) => {
 
   const hydrateUser = async (sessionUser) => {
     if (!sessionUser) return null;
-
     const profile = await getProfile(sessionUser.id);
     return formatUser(sessionUser, profile);
   };
@@ -81,9 +82,7 @@ export const AuthProvider = ({ children }) => {
           setUser(formatUser(session.user));
 
           const fullUser = await hydrateUser(session.user);
-          if (mounted && fullUser) {
-            setUser(fullUser);
-          }
+          if (mounted && fullUser) setUser(fullUser);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
@@ -108,12 +107,11 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (event === "TOKEN_REFRESHED" && session?.user) {
-        setUser((prev) => {
-          if (!prev || prev.id !== session.user.id) {
-            return formatUser(session.user);
-          }
-          return prev;
-        });
+        setUser((prev) =>
+          !prev || prev.id !== session.user.id
+            ? formatUser(session.user)
+            : prev
+        );
       }
     });
 
@@ -125,13 +123,10 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const data = await authService.login(email, password);
-
     if (data.user) {
       hydratedRef.current = true;
-      const fullUser = await hydrateUser(data.user);
-      setUser(fullUser);
+      setUser(await hydrateUser(data.user));
     }
-
     return data;
   };
 
@@ -140,13 +135,10 @@ export const AuthProvider = ({ children }) => {
 
   const verifySignupOtp = async (email, token) => {
     const data = await authService.verifyRegistration(email, token);
-
     if (data.user) {
       hydratedRef.current = true;
-      const fullUser = await hydrateUser(data.user);
-      setUser(fullUser);
+      setUser(await hydrateUser(data.user));
     }
-
     return data;
   };
 
@@ -154,13 +146,10 @@ export const AuthProvider = ({ children }) => {
 
   const verifyLoginOtp = async (email, token) => {
     const data = await authService.verifyOtp(email, token);
-
     if (data.user) {
       hydratedRef.current = true;
-      const fullUser = await hydrateUser(data.user);
-      setUser(fullUser);
+      setUser(await hydrateUser(data.user));
     }
-
     return data;
   };
 
@@ -172,11 +161,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateUserPassword = async (newPassword) => {
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw error;
-
     await logout();
   };
 
@@ -189,6 +175,37 @@ export const AuthProvider = ({ children }) => {
       localStorage.clear();
       sessionStorage.clear();
     }
+  };
+
+  // ===== ENHANCEMENT =====
+  const updateUserProfileData = async (formData, avatarFile) => {
+    if (!user) return;
+
+    let avatarUrl = user.avatar_url;
+
+    if (avatarFile) {
+      avatarUrl = await authService.uploadAvatar(user.id, avatarFile);
+    }
+
+    const updates = {
+      full_name: formData.fullName,
+      jenjang: formData.jenjang,
+      kelas: formData.kelas,
+      whatsapp: formData.whatsapp,
+      avatar_url: avatarUrl,
+      updated_at: new Date(),
+    };
+
+    await authService.updateProfile(user.id, updates);
+
+    setUser((prev) => ({
+      ...prev,
+      name: updates.full_name,
+      jenjang: updates.jenjang,
+      kelas: updates.kelas,
+      whatsapp: updates.whatsapp,
+      avatar_url: updates.avatar_url,
+    }));
   };
 
   return (
@@ -204,6 +221,7 @@ export const AuthProvider = ({ children }) => {
         resetPassword,
         updateUserPassword,
         logout,
+        updateUserProfileData,
       }}
     >
       {children}

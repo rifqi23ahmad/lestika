@@ -1,7 +1,7 @@
 import { supabase } from "../lib/supabase";
 
 export const authService = {
-  login: async (email, password) => {
+  async login(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -16,7 +16,7 @@ export const authService = {
     return data;
   },
 
-  sendOtp: async (email) => {
+  async sendOtp(email) {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { shouldCreateUser: false },
@@ -34,7 +34,7 @@ export const authService = {
     return true;
   },
 
-  verifyOtp: async (email, token) => {
+  async verifyOtp(email, token) {
     const { data, error } = await supabase.auth.verifyOtp({
       email,
       token,
@@ -44,7 +44,7 @@ export const authService = {
     return data;
   },
 
-  register: async (email, password, fullName, detailData) => {
+  async register(email, password, fullName, detailData) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -70,28 +70,26 @@ export const authService = {
       }
       throw error;
     }
-
     return data;
   },
 
-  verifyRegistration: async (email, token) => {
+  async verifyRegistration(email, token) {
     const { data, error } = await supabase.auth.verifyOtp({
       email,
       token,
       type: "email",
     });
-
     if (error) throw error;
     return data;
   },
 
-  logout: async () => {
+  async logout() {
     const { error } = await supabase.auth.signOut();
     if (error && error.code !== "session_not_found") throw error;
     return true;
   },
 
-  getSession: async () => {
+  async getSession() {
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -120,5 +118,41 @@ export const authService = {
       whatsapp: profile?.whatsapp || "-",
       avatar_url: profile?.avatar_url || "",
     };
+  },
+
+  async uploadAvatar(userId, file) {
+    if (!file) throw new Error("NO_FILE");
+
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${userId}-${Date.now()}.${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from("avatars")
+      .upload(fileName, file, { upsert: true });
+
+    if (error) throw error;
+
+    const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
+
+    return data.publicUrl;
+  },
+
+  async updateProfile(userId, updates) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    if (updates.full_name) {
+      await supabase.auth.updateUser({
+        data: { full_name: updates.full_name },
+      });
+    }
+
+    return data;
   },
 };
