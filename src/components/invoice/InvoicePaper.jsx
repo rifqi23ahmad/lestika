@@ -61,16 +61,16 @@ const InvoicePaper = forwardRef(({ invoice, children }, ref) => {
                 style={{ letterSpacing: "-0.5px" }}
               >
                 MAPA
+                
               </h4>
-              <small className="text-muted">Bimbingan Belajar Online</small>
             </div>
           </div>
           <div className="text-muted small">
             <div className="d-flex align-items-center mb-1">
-              <Globe size={14} className="me-2" /> www.bimbelmapa.com
+              <Globe size={14} className="me-2" /> www.bimbelmapa.my.id
             </div>
             <div className="d-flex align-items-center">
-              <MapPin size={14} className="me-2" /> Tangerang, Banten
+              <MapPin size={14} className="me-2" /> Jl. Karya Damai, Buaran Indah, Kota Tangerang 15119
             </div>
           </div>
         </div>
