@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, amount = 5, jenjang = "Umum", kelas = "" } = await req.json()
+    const { topic, amount = 10, jenjang = "Umum", kelas = "" } = await req.json()
     const apiKey = Deno.env.get('GOOGLE_API_KEY')
 
     if (!apiKey) throw new Error('Google API Key not configured')

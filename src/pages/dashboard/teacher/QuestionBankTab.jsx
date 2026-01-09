@@ -385,7 +385,7 @@ export default function QuestionBankTab({ user, showModal }) {
 
       if (insertError) throw insertError;
 
-      showModal("Sukses", "Berhasil membuat 5 soal otomatis!", "success");
+      showModal("Sukses", "Berhasil membuat 10 soal otomatis!", "success");
       setShowAiModal(false);
       setAiTopic(""); // Reset input
       fetchQuestions(activePackage.id); // Refresh tabel
@@ -596,7 +596,7 @@ export default function QuestionBankTab({ user, showModal }) {
               onChange={(e) => setAiTopic(e.target.value)}
             />
             <Form.Text className="text-muted">
-              AI akan membuatkan 5 soal pilihan ganda beserta kunci jawaban berdasarkan topik ini.
+              AI akan membuatkan 10 soal pilihan ganda beserta kunci jawaban berdasarkan topik ini.
             </Form.Text>
           </Form.Group>
         </Modal.Body>
