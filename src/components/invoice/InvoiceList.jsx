@@ -1,20 +1,13 @@
+// src/components/invoice/InvoiceList.jsx
 import React from "react";
-import { Card, Table, Button, Spinner, Badge, Row, Col } from "react-bootstrap";
+import { Card, Table, Button, Spinner, Row, Col } from "react-bootstrap";
 import { FileText, Search, ChevronRight, Calendar, Package } from "lucide-react";
 import { formatRupiah } from "../../utils/format";
-import { APP_CONFIG } from "../../config/constants";
+import InvoiceStatusBadge from "../common/InvoiceStatusBadge"; // Import komponen baru
 
 export default function InvoiceList({ history, onSelect, fetching, navigate }) {
   
-  const getStatusBadge = (status) => {
-    if (status === APP_CONFIG.INVOICE.STATUS.PAID) {
-      return <Badge bg="success" className="fw-normal px-2 py-1">LUNAS</Badge>;
-    }
-    if (status === APP_CONFIG.INVOICE.STATUS.WAITING) {
-      return <Badge bg="warning" text="dark" className="fw-normal px-2 py-1">MENUNGGU VERIFIKASI</Badge>;
-    }
-    return <Badge bg="danger" className="fw-normal px-2 py-1">BELUM DIBAYAR</Badge>;
-  };
+  // getStatusBadge dihapus karena sudah diganti komponen InvoiceStatusBadge
 
   return (
     <Card className="shadow-sm border-0 rounded-3">
@@ -67,7 +60,9 @@ export default function InvoiceList({ history, onSelect, fetching, navigate }) {
                         })}
                       </td>
                       <td className="fw-bold text-dark">{formatRupiah(item.total_amount)}</td>
-                      <td>{getStatusBadge(item.status)}</td>
+                      <td>
+                        <InvoiceStatusBadge status={item.status} />
+                      </td>
                       <td className="text-end pe-4">
                         <Button size="sm" variant="outline-secondary" className="rounded-pill px-3">
                           Detail
@@ -80,7 +75,6 @@ export default function InvoiceList({ history, onSelect, fetching, navigate }) {
             </div>
 
             {/* --- TAMPILAN MOBILE (Card List) --- */}
-            {/* Hanya muncul di layar kecil (d-md-none) */}
             <div className="d-block d-md-none bg-light">
               {history.map((item) => (
                 <div 
@@ -89,19 +83,16 @@ export default function InvoiceList({ history, onSelect, fetching, navigate }) {
                   onClick={() => onSelect(item)}
                   style={{ cursor: "pointer" }}
                 >
-                  {/* Baris Atas: No Invoice & Status */}
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <span className="fw-bold text-primary">#{item.invoice_no}</span>
-                    {getStatusBadge(item.status)}
+                    <InvoiceStatusBadge status={item.status} />
                   </div>
 
-                  {/* Baris Tengah: Paket Belajar */}
                   <div className="d-flex align-items-center text-dark mb-1">
                     <Package size={16} className="me-2 text-muted" />
                     <span className="fw-medium">{item.package_name}</span>
                   </div>
 
-                  {/* Baris Tengah: Tanggal */}
                   <div className="d-flex align-items-center text-muted small mb-3">
                     <Calendar size={16} className="me-2 opacity-50" />
                     <span>
@@ -111,7 +102,6 @@ export default function InvoiceList({ history, onSelect, fetching, navigate }) {
                     </span>
                   </div>
 
-                  {/* Baris Bawah: Harga & Tombol Panah */}
                   <div className="d-flex justify-content-between align-items-center pt-2 border-top">
                     <div>
                       <span className="text-muted small d-block">Total Tagihan</span>

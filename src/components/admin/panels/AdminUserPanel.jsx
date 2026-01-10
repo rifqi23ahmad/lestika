@@ -1,52 +1,44 @@
+// src/components/admin/panels/AdminUserPanel.jsx
 import React, { useState, useEffect } from "react";
-import { Card, Table, Button, Badge, Alert } from "react-bootstrap";
-import { supabase } from "../../../lib/supabase"; // Adjust path
+import { Card, Table, Button, Alert } from "react-bootstrap";
+import { userService } from "../../../services/userService"; // Import service baru
+import RoleBadge from "../../common/RoleBadge"; // Import komponen badge
 
 export default function AdminUserPanel({ showInfo, showConfirm }) {
   const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     loadUsers();
   }, []);
 
   const loadUsers = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setUsers(data || []);
+    setIsLoading(true);
+    try {
+      const data = await userService.getAllUsers();
+      setUsers(data);
+    } catch (error) {
+      console.error("Gagal memuat user:", error);
+      showInfo("Error", "Gagal memuat data user.", "error");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handlePromoteToTeacher = (userId) => {
+  const handleRoleChange = (userId, newRole, actionName) => {
     showConfirm(
-      "Konfirmasi",
-      "Ubah hak akses user ini menjadi GURU?",
-      "info",
+      "Konfirmasi Perubahan Role",
+      `Apakah Anda yakin ingin mengubah user ini menjadi ${newRole.toUpperCase()}?`,
+      newRole === "siswa" ? "warning" : "info", // Warning kalau demote, Info kalau promote
       async () => {
-        const { error: errPromo } = await supabase
-          .from("profiles")
-          .update({ role: "guru" })
-          .eq("id", userId);
-        if (errPromo) throw errPromo;
-        loadUsers();
-        showInfo("Berhasil", "User berhasil diubah menjadi Guru.", "success");
-      }
-    );
-  };
-
-  const handleDemoteToStudent = (userId) => {
-    showConfirm(
-      "Konfirmasi",
-      "Cabut akses guru dan kembalikan jadi SISWA?",
-      "warning",
-      async () => {
-        const { error: errDemo } = await supabase
-          .from("profiles")
-          .update({ role: "siswa" })
-          .eq("id", userId);
-        if (errDemo) throw errDemo;
-        loadUsers();
-        showInfo("Berhasil", "User dikembalikan menjadi Siswa.", "success");
+        try {
+          await userService.updateUserRole(userId, newRole);
+          await loadUsers(); // Reload data local
+          showInfo("Berhasil", `User berhasil diubah menjadi ${newRole}.`, "success");
+        } catch (error) {
+          console.error(error);
+          showInfo("Gagal", "Terjadi kesalahan saat update role.", "error");
+        }
       }
     );
   };
@@ -71,46 +63,41 @@ export default function AdminUserPanel({ showInfo, showConfirm }) {
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
-              <tr key={u.id}>
-                <td className="fw-medium">{u.full_name || "-"}</td>
-                <td>{u.email}</td>
-                <td>
-                  <Badge
-                    bg={
-                      u.role === "admin"
-                        ? "danger"
-                        : u.role === "guru"
-                        ? "success"
-                        : "secondary"
-                    }
-                    className="text-uppercase"
-                  >
-                    {u.role}
-                  </Badge>
-                </td>
-                <td className="text-end">
-                  {u.role === "siswa" && (
-                    <Button
-                      size="sm"
-                      variant="outline-success"
-                      onClick={() => handlePromoteToTeacher(u.id)}
-                    >
-                      Promote Guru
-                    </Button>
-                  )}
-                  {u.role === "guru" && (
-                    <Button
-                      size="sm"
-                      variant="outline-warning"
-                      onClick={() => handleDemoteToStudent(u.id)}
-                    >
-                      Demote Siswa
-                    </Button>
-                  )}
-                </td>
+            {isLoading ? (
+              <tr>
+                <td colSpan="4" className="text-center py-3">Memuat data...</td>
               </tr>
-            ))}
+            ) : (
+              users.map((u) => (
+                <tr key={u.id}>
+                  <td className="fw-medium">{u.full_name || "-"}</td>
+                  <td>{u.email}</td>
+                  <td>
+                    <RoleBadge role={u.role} />
+                  </td>
+                  <td className="text-end">
+                    {u.role === "siswa" && (
+                      <Button
+                        size="sm"
+                        variant="outline-success"
+                        onClick={() => handleRoleChange(u.id, "guru")}
+                      >
+                        Promote Guru
+                      </Button>
+                    )}
+                    {u.role === "guru" && (
+                      <Button
+                        size="sm"
+                        variant="outline-warning"
+                        onClick={() => handleRoleChange(u.id, "siswa")}
+                      >
+                        Demote Siswa
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </Table>
       </Card.Body>
