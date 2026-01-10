@@ -1,18 +1,37 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Row, Col } from "react-bootstrap";
-import { TrendingUp } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import AdminPackagePanel from "../../components/admin/panels/AdminPackagePanel";
 import AdminUserPanel from "../../components/admin/panels/AdminUserPanel";
 import AdminInvoicePanel from "../../components/admin/panels/AdminInvoicePanel";
-import AdminRevenuePanel from "../../components/admin/panels/AdminRevenuePanel"; 
+import AdminRevenuePanel from "../../components/admin/panels/AdminRevenuePanel";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import StatusModal from "../../components/common/StatusModal";
 
-export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("paket");
-  const [invoiceCount, setInvoiceCount] = useState(0);
+const ADMIN_TAB_REGISTRY = {
+  paket: true,
+  guru: true,
+  invoice: true,
+  laporan: true,
+};
 
+const DEFAULT_TAB = "paket";
+
+export default function AdminDashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const activeTab = useMemo(() => {
+    const t = searchParams.get("tab");
+    return ADMIN_TAB_REGISTRY[t] ? t : DEFAULT_TAB;
+  }, [searchParams]);
+
+  const setActiveTab = (tab) => {
+    setSearchParams({ tab });
+  };
+
+  const [invoiceCount, setInvoiceCount] = useState(0);
   const [statusModal, setStatusModal] = useState({
     show: false,
     title: "",
@@ -30,44 +49,17 @@ export default function AdminDashboard() {
 
   const [loadingAction, setLoadingAction] = useState(false);
 
-  const showStatus = (title, msg, type = "success") => {
+  const showStatus = (title, msg, type = "success") =>
     setStatusModal({ show: true, title, msg, type });
-  };
 
-  const showConfirm = (
-    title,
-    msg,
-    variant = "primary",
-    onConfirmAction = null
-  ) => {
+  const showConfirm = (title, msg, variant, action) =>
     setConfirmModal({
       show: true,
       title,
       msg,
       variant,
-      actionCallback: onConfirmAction,
+      actionCallback: action,
     });
-  };
-
-  const handleExecuteConfirm = async () => {
-    if (confirmModal.actionCallback) {
-      setLoadingAction(true);
-      try {
-        await confirmModal.actionCallback();
-      } catch (error) {
-        showStatus(
-          "Gagal",
-          error.message || "Terjadi kesalahan sistem.",
-          "error"
-        );
-      } finally {
-        setLoadingAction(false);
-        setConfirmModal((prev) => ({ ...prev, show: false }));
-      }
-    } else {
-      setConfirmModal((prev) => ({ ...prev, show: false }));
-    }
-  };
 
   return (
     <Row className="g-4">
@@ -109,8 +101,15 @@ export default function AdminDashboard() {
         message={confirmModal.msg}
         variant={confirmModal.variant}
         loading={loadingAction}
-        onCancel={() => setConfirmModal((prev) => ({ ...prev, show: false }))}
-        onConfirm={handleExecuteConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, show: false })}
+        onConfirm={async () => {
+          if (confirmModal.actionCallback) {
+            setLoadingAction(true);
+            await confirmModal.actionCallback();
+            setLoadingAction(false);
+            setConfirmModal({ ...confirmModal, show: false });
+          }
+        }}
       />
 
       <StatusModal
@@ -118,7 +117,7 @@ export default function AdminDashboard() {
         title={statusModal.title}
         message={statusModal.msg}
         type={statusModal.type}
-        onHide={() => setStatusModal((prev) => ({ ...prev, show: false }))}
+        onHide={() => setStatusModal({ ...statusModal, show: false })}
       />
     </Row>
   );

@@ -99,3 +99,7 @@ a:hover .icon-circle,
 }
 
 
+
+.profile-toggle.dropdown-toggle::after {
+  display: none !important;
+}
