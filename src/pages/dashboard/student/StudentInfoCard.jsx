@@ -281,8 +281,6 @@ export default function StudentInfoCard({
                   <option>SD</option>
                   <option>SMP</option>
                   <option>SMA</option>
-                  <option>Mahasiswa</option>
-                  <option>Umum</option>
                 </Form.Select>
               </Col>
               <Col>

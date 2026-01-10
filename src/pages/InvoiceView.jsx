@@ -54,6 +54,14 @@ export default function InvoiceView() {
     setStatusModal({ show: true, title, message, type });
   };
 
+  const handleStatusModalClose = () => {
+    setStatusModal({ ...statusModal, show: false });
+    // Jika upload sukses, redirect ke Home agar user melihat status 'Menunggu'
+    if (statusModal.title === "Upload Berhasil") {
+       navigate("/"); 
+    }
+  };
+
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!file) return;
@@ -61,8 +69,8 @@ export default function InvoiceView() {
     try {
       const updatedInvoice = await invoiceService.processPaymentConfirmation(invoice.id, user.id, file);
       setInvoice(updatedInvoice);
-      fetchHistory();
-      showStatus("Upload Berhasil", "Bukti pembayaran telah dikirim.", "success");
+      await fetchHistory(); // Refresh data
+      showStatus("Upload Berhasil", "Bukti pembayaran telah dikirim. Status pesananmu kini 'Menunggu Konfirmasi'.", "success");
       setFile(null);
     } catch (error) {
       showStatus("Upload Gagal", error.message, "error");
@@ -107,7 +115,7 @@ export default function InvoiceView() {
       const imgData = canvas.toDataURL("image/jpeg", 0.7); 
 
       pdf.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight, undefined, "FAST");
-      pdf.save(`Invoice-${invoice.invoice_no}.pdf`);
+      pdf.save(`Invoice-${invoice?.invoice_no || 'MAPA'}.pdf`);
 
     } catch (error) {
       console.error(error);
@@ -119,7 +127,9 @@ export default function InvoiceView() {
 
   
   const renderUploadForm = () => {
-    if (invoice.status !== APP_CONFIG.INVOICE.STATUS.UNPAID) return null;
+    // Tampilkan hanya jika status UNPAID
+    if (!invoice || invoice.status !== APP_CONFIG.INVOICE.STATUS.UNPAID) return null;
+    
     return (
       <div className="mt-5 p-4 border border-dashed rounded bg-blue-50" style={{ backgroundColor: "#f8f9fa" }}>
         <h6 className="fw-bold mb-3 d-flex align-items-center text-primary">
@@ -129,10 +139,11 @@ export default function InvoiceView() {
           <Row className="g-2 align-items-center">
             <Col xs={12} md>
               <Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} required className="shadow-none" />
+              <Form.Text className="text-muted">Format: JPG, PNG, PDF (Max 2MB)</Form.Text>
             </Col>
             <Col xs={12} md="auto">
-              <Button type="submit" variant="primary" disabled={loadingUpload} className="w-100">
-                {loadingUpload ? <Spinner size="sm" animation="border" /> : "Kirim"}
+              <Button type="submit" variant="primary" disabled={loadingUpload} className="w-100 fw-bold">
+                {loadingUpload ? <Spinner size="sm" animation="border" /> : "Kirim Bukti"}
               </Button>
             </Col>
           </Row>
@@ -158,16 +169,22 @@ export default function InvoiceView() {
               <Button variant="link" className="text-decoration-none p-0 d-flex align-items-center text-muted fw-medium" onClick={() => { setViewMode("list"); fetchHistory(); }}>
                 <ArrowLeft size={18} className="me-2" /> Kembali ke Riwayat
               </Button>
-              <Button variant="primary" onClick={handleDownloadPDF} disabled={downloading} className="d-flex align-items-center shadow-sm w-100 w-md-auto justify-content-center">
-                <Download size={16} className="me-2" />
-                {downloading ? "Memproses..." : "Download PDF"}
-              </Button>
+              
+              {/* Tombol Download PDF hanya jika sudah ada invoice data */}
+              {invoice && (
+                <Button variant="primary" onClick={handleDownloadPDF} disabled={downloading} className="d-flex align-items-center shadow-sm w-100 w-md-auto justify-content-center">
+                  <Download size={16} className="me-2" />
+                  {downloading ? "Memproses..." : "Download PDF"}
+                </Button>
+              )}
             </div>
 
             <InvoicePreviewWrapper>
-              <InvoicePaper ref={printRef} invoice={invoice}>
-                {renderUploadForm()}
-              </InvoicePaper>
+              {invoice && (
+                 <InvoicePaper ref={printRef} invoice={invoice}>
+                   {renderUploadForm()}
+                 </InvoicePaper>
+              )}
             </InvoicePreviewWrapper>
           </>
         )}
@@ -175,7 +192,7 @@ export default function InvoiceView() {
 
       <StatusModal
         show={statusModal.show}
-        onHide={() => setStatusModal({ ...statusModal, show: false })}
+        onHide={handleStatusModalClose}
         title={statusModal.title}
         message={statusModal.message}
         type={statusModal.type}
