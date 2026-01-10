@@ -10,17 +10,16 @@ import {
   Alert,
 } from "react-bootstrap";
 import {
-  BookOpen,
-  CheckCircle,
+  PlayCircle,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
-  PlayCircle,
   Award,
+  Lock
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
-export default function ExerciseTab({ user }) {
+export default function ExerciseTab({ user, isExpired }) {
   const [packages, setPackages] = useState([]);
   const [loadingPkg, setLoadingPkg] = useState(false);
 
@@ -33,6 +32,21 @@ export default function ExerciseTab({ user }) {
 
   const [loadingSoal, setLoadingSoal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // --- BLOKIR JIKA EXPIRED ---
+  if (isExpired) {
+    return (
+      <div className="text-center py-5">
+        <div className="bg-danger bg-opacity-10 p-4 rounded-circle d-inline-block mb-3">
+          <Lock size={48} className="text-danger" />
+        </div>
+        <h5 className="fw-bold text-dark">Latihan Soal Terkunci</h5>
+        <p className="text-muted">
+          Silakan perpanjang paket untuk mengakses bank soal dan latihan.
+        </p>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (user) fetchPackages();
@@ -86,35 +100,20 @@ export default function ExerciseTab({ user }) {
     setAnswers((prev) => ({ ...prev, [q.id]: optionIndex }));
   };
 
-  /**
-   * ===============================
-   * SUBMIT QUIZ (FINAL & AMAN)
-   * ===============================
-   * - Score dihitung sementara
-   * - Disimpan ke DB
-   * - Score yang DITAMPILKAN = dari DB
-   */
   const submitQuiz = async () => {
     if (submitting) return;
     setSubmitting(true);
 
     try {
       let correctCount = 0;
-
       questions.forEach((q) => {
         const selectedIdx = answers[q.id];
-        if (
-          selectedIdx !== undefined &&
-          q.options?.[selectedIdx]?.is_correct
-        ) {
+        if (selectedIdx !== undefined && q.options?.[selectedIdx]?.is_correct) {
           correctCount++;
         }
       });
 
-      const calculatedScore =
-        questions.length > 0
-          ? (correctCount / questions.length) * 100
-          : 0;
+      const calculatedScore = questions.length > 0 ? (correctCount / questions.length) * 100 : 0;
 
       const { data, error } = await supabase
         .from("student_attempts")
@@ -129,7 +128,6 @@ export default function ExerciseTab({ user }) {
 
       if (error) throw error;
 
-      // 🔵 SCORE FINAL DIAMBIL DARI DATABASE
       setScore(data.score);
       setShowResult(true);
     } catch (err) {
@@ -139,17 +137,12 @@ export default function ExerciseTab({ user }) {
     }
   };
 
-  /* ===============================
-     VIEW: LIST PAKET
-     =============================== */
   if (!activeQuiz) {
     return (
       <div className="animate-fade-in">
         <div className="mb-4">
           <h5 className="fw-bold mb-1">Latihan Soal</h5>
-          <p className="text-muted small mb-0">
-            Asah kemampuanmu dengan mengerjakan paket soal.
-          </p>
+          <p className="text-muted small mb-0">Asah kemampuanmu dengan mengerjakan paket soal.</p>
         </div>
 
         {loadingPkg && (
@@ -159,9 +152,7 @@ export default function ExerciseTab({ user }) {
         )}
 
         {!loadingPkg && packages.length === 0 && (
-          <Alert variant="info">
-            Belum ada paket soal tersedia.
-          </Alert>
+          <Alert variant="info">Belum ada paket soal tersedia.</Alert>
         )}
 
         <Row className="g-3">
@@ -170,18 +161,12 @@ export default function ExerciseTab({ user }) {
               <Card className="h-100 shadow-sm border-0 rounded-4">
                 <Card.Body className="p-4 d-flex flex-column">
                   <div className="d-flex justify-content-between mb-3">
-                    <Badge bg="primary" className="bg-opacity-10 text-primary">
-                      {pkg.subject}
-                    </Badge>
-                    <Badge bg="light" text="dark" className="border">
-                      {pkg.level}
-                    </Badge>
+                    <Badge bg="primary" className="bg-opacity-10 text-primary">{pkg.subject}</Badge>
+                    <Badge bg="light" text="dark" className="border">{pkg.level}</Badge>
                   </div>
 
                   <h5 className="fw-bold mb-2">{pkg.title}</h5>
-                  <p className="small text-muted flex-grow-1">
-                    Oleh: {pkg.teacher?.full_name || "Guru"}
-                  </p>
+                  <p className="small text-muted flex-grow-1">Oleh: {pkg.teacher?.full_name || "Guru"}</p>
 
                   <Button
                     variant="primary"
@@ -189,13 +174,7 @@ export default function ExerciseTab({ user }) {
                     onClick={() => startQuiz(pkg)}
                     disabled={loadingSoal}
                   >
-                    {loadingSoal ? (
-                      <Spinner size="sm" />
-                    ) : (
-                      <>
-                        <PlayCircle size={18} /> Mulai Kerjakan
-                      </>
-                    )}
+                    {loadingSoal ? <Spinner size="sm" /> : <><PlayCircle size={18} /> Mulai Kerjakan</>}
                   </Button>
                 </Card.Body>
               </Card>
@@ -206,119 +185,62 @@ export default function ExerciseTab({ user }) {
     );
   }
 
-  /* ===============================
-     VIEW: QUIZ & RESULT
-     =============================== */
   const currentQ = questions[currentQIndex];
-  const progress =
-    questions.length > 0
-      ? ((currentQIndex + 1) / questions.length) * 100
-      : 0;
+  const progress = questions.length > 0 ? ((currentQIndex + 1) / questions.length) * 100 : 0;
 
   return (
     <Card className="border-0 shadow-sm rounded-4 animate-fade-in">
       <Card.Body className="p-0">
-        {/* HEADER */}
         <div className="p-4 border-bottom">
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h5 className="fw-bold m-0">{activeQuiz.title}</h5>
             {showResult && (
-              <Button
-                variant="outline-primary"
-                size="sm"
-                onClick={() => setActiveQuiz(null)}
-              >
+              <Button variant="outline-primary" size="sm" onClick={() => setActiveQuiz(null)}>
                 <RefreshCw size={14} /> Pilih Paket Lain
               </Button>
             )}
           </div>
-
-          {!showResult && (
-            <ProgressBar
-              now={progress}
-              style={{ height: "8px" }}
-              className="rounded-pill"
-            />
-          )}
+          {!showResult && <ProgressBar now={progress} style={{ height: "8px" }} className="rounded-pill" />}
         </div>
 
         <div className="p-4">
           {!showResult ? (
             <>
               <h5 className="mb-4">{currentQ.question_text}</h5>
-
               <div className="d-grid gap-3 mb-5">
                 {currentQ.options.map((opt, idx) => (
                   <div
                     key={idx}
-                    className={`p-3 border rounded-3 ${
-                      answers[currentQ.id] === idx
-                        ? "bg-primary bg-opacity-10 border-primary"
-                        : ""
-                    }`}
+                    className={`p-3 border rounded-3 ${answers[currentQ.id] === idx ? "bg-primary bg-opacity-10 border-primary" : ""}`}
                     style={{ cursor: "pointer" }}
                     onClick={() => handleAnswer(idx)}
                   >
-                    <strong>{String.fromCharCode(65 + idx)}.</strong>{" "}
-                    {opt.text}
+                    <strong>{String.fromCharCode(65 + idx)}.</strong> {opt.text}
                   </div>
                 ))}
               </div>
-
               <div className="d-flex justify-content-between">
-                <Button
-                  variant="light"
-                  disabled={currentQIndex === 0}
-                  onClick={() =>
-                    setCurrentQIndex((p) => p - 1)
-                  }
-                >
+                <Button variant="light" disabled={currentQIndex === 0} onClick={() => setCurrentQIndex((p) => p - 1)}>
                   <ChevronLeft size={16} /> Sebelumnya
                 </Button>
-
                 {currentQIndex < questions.length - 1 ? (
-                  <Button
-                    variant="primary"
-                    onClick={() =>
-                      setCurrentQIndex((p) => p + 1)
-                    }
-                  >
+                  <Button variant="primary" onClick={() => setCurrentQIndex((p) => p + 1)}>
                     Selanjutnya <ChevronRight size={16} />
                   </Button>
                 ) : (
-                  <Button
-                    variant="success"
-                    onClick={submitQuiz}
-                    disabled={submitting}
-                  >
-                    {submitting ? (
-                      <Spinner size="sm" />
-                    ) : (
-                      "Selesai & Lihat Nilai"
-                    )}
+                  <Button variant="success" onClick={submitQuiz} disabled={submitting}>
+                    {submitting ? <Spinner size="sm" /> : "Selesai & Lihat Nilai"}
                   </Button>
                 )}
               </div>
             </>
           ) : (
-            /* ===== RESULT ===== */
             <div className="text-center py-5 bg-light rounded-4">
               <Award size={96} className="text-primary mb-3" />
               <h4 className="mb-2">Skor Kamu</h4>
-              <h1
-                className={`fw-bold ${
-                  score >= 70 ? "text-success" : "text-danger"
-                }`}
-              >
-                {score.toFixed(0)}
-              </h1>
-              <Badge
-                bg={score >= 70 ? "success" : "danger"}
-                className="mt-2"
-              >
-                {score >= 70
-                  ? "Lulus - Pertahankan!"
-                  : "Belum Lulus - Coba Lagi"}
+              <h1 className={`fw-bold ${score >= 70 ? "text-success" : "text-danger"}`}>{score.toFixed(0)}</h1>
+              <Badge bg={score >= 70 ? "success" : "danger"} className="mt-2">
+                {score >= 70 ? "Lulus - Pertahankan!" : "Belum Lulus - Coba Lagi"}
               </Badge>
             </div>
           )}

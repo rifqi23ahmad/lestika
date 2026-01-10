@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { Row, Col } from "react-bootstrap";
 import { useSearchParams } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
+// Import Components
+import AdminHome from "../../components/home/AdminHome"; // Import AdminHome
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import AdminPackagePanel from "../../components/admin/panels/AdminPackagePanel";
 import AdminUserPanel from "../../components/admin/panels/AdminUserPanel";
@@ -17,11 +20,14 @@ const ADMIN_TAB_REGISTRY = {
   laporan: true,
 };
 
-const DEFAULT_TAB = "paket";
+// Ubah DEFAULT_TAB jadi null agar bisa mendeteksi halaman "Home"
+const DEFAULT_TAB = null; 
 
 export default function AdminDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth(); // Ambil data user untuk ditampilkan di Home
 
+  // Logika Tab: Jika params 'tab' valid, gunakan itu. Jika tidak, null.
   const activeTab = useMemo(() => {
     const t = searchParams.get("tab");
     return ADMIN_TAB_REGISTRY[t] ? t : DEFAULT_TAB;
@@ -61,6 +67,12 @@ export default function AdminDashboard() {
       actionCallback: action,
     });
 
+  // KONDISI UTAMA: Jika tidak ada tab aktif, tampilkan AdminHome (Full Width)
+  if (!activeTab) {
+    return <AdminHome user={user} />;
+  }
+
+  // Jika ada tab aktif, tampilkan layout Dashboard dengan Sidebar
   return (
     <Row className="g-4">
       <Col lg={3}>

@@ -1,17 +1,32 @@
 import React from "react";
 import { Spinner, Alert, Badge } from "react-bootstrap";
-import { CheckCircle, Clock } from "lucide-react";
+import { CheckCircle, Clock, Lock } from "lucide-react";
 import ConfirmModal from "./ConfirmModal";
 
-import { useScheduleData } from "../../../../hooks/useScheduleData"; // Global Hook
-import { useIsMobile } from "../../../../hooks/useIsMobile"; // Global Hook
+import { useScheduleData } from "../../../../hooks/useScheduleData"; 
+import { useIsMobile } from "../../../../hooks/useIsMobile"; 
 
 import WeeklyScheduleBoard from "../../../../components/schedule/WeeklyScheduleBoard";
 import MobileScheduleList from "../../../../components/schedule/MobileScheduleList";
 
-export default function StudentScheduleTab({ user, showModal }) {
+export default function StudentScheduleTab({ user, showModal, isExpired }) {
   const isMobile = useIsMobile();
   const schedule = useScheduleData({ user, showModal });
+
+  // --- BLOKIR JIKA EXPIRED ---
+  if (isExpired) {
+    return (
+      <div className="text-center py-5">
+        <div className="bg-danger bg-opacity-10 p-4 rounded-circle d-inline-block mb-3">
+          <Lock size={48} className="text-danger" />
+        </div>
+        <h5 className="fw-bold text-dark">Jadwal Terkunci</h5>
+        <p className="text-muted">
+          Perpanjang paket belajar Anda untuk melihat dan mengatur jadwal kelas.
+        </p>
+      </div>
+    );
+  }
 
   if (schedule.loading) {
     return (
@@ -44,26 +59,15 @@ export default function StudentScheduleTab({ user, showModal }) {
       <div>
         <div className="fw-bold text-dark small mb-1">{slot.subject}</div>
         {isMySlot ? (
-          <Badge
-            bg="primary"
-            className="fw-normal d-flex align-items-center w-fit gap-1"
-            style={{ fontSize: "0.7rem" }}
-          >
+          <Badge bg="primary" className="fw-normal d-flex align-items-center w-fit gap-1" style={{ fontSize: "0.7rem" }}>
             <CheckCircle size={10} /> Terjadwal
           </Badge>
         ) : isBooked ? (
-          <Badge
-            bg="secondary"
-            className="fw-normal"
-            style={{ fontSize: "0.7rem" }}
-          >
+          <Badge bg="secondary" className="fw-normal" style={{ fontSize: "0.7rem" }}>
             Penuh
           </Badge>
         ) : (
-          <div
-            className="text-success small fw-bold"
-            style={{ fontSize: "0.75rem" }}
-          >
+          <div className="text-success small fw-bold" style={{ fontSize: "0.75rem" }}>
             Tersedia
           </div>
         )}
