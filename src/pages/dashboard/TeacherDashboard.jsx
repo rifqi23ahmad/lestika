@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Tabs, Tab, Modal, Button } from "react-bootstrap";
+import { useSearchParams } from "react-router-dom";
 import {
   Calendar,
   UserCheck,
@@ -16,8 +17,34 @@ import GradeTab from "../dashboard/teacher/GradeTab";
 import MaterialTab from "../dashboard/teacher/MaterialTab";
 import QuestionBankTab from "../dashboard/teacher/QuestionBankTab";
 
+const TAB_REGISTRY = {
+  jadwal: {
+    icon: Calendar,
+    label: "Kelola Jadwal",
+    component: ScheduleTab,
+  },
+  nilai: {
+    icon: UserCheck,
+    label: "Input Nilai",
+    component: GradeTab,
+  },
+  bank_soal: {
+    icon: FileText,
+    label: "Bank Soal",
+    component: QuestionBankTab,
+  },
+  materi: {
+    icon: Upload,
+    label: "Upload Materi",
+    component: MaterialTab,
+  },
+};
+
+const DEFAULT_TAB = "jadwal";
+
 export default function TeacherDashboard() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [students, setStudents] = useState([]);
 
   const [modalData, setModalData] = useState({
@@ -29,6 +56,15 @@ export default function TeacherDashboard() {
 
   const showModal = (title, msg, type = "info") => {
     setModalData({ show: true, title, msg, type });
+  };
+
+  const activeTab = useMemo(() => {
+    const tabFromUrl = searchParams.get("tab");
+    return TAB_REGISTRY[tabFromUrl] ? tabFromUrl : DEFAULT_TAB;
+  }, [searchParams]);
+
+  const handleTabChange = (key) => {
+    setSearchParams({ tab: key });
   };
 
   useEffect(() => {
@@ -45,54 +81,34 @@ export default function TeacherDashboard() {
 
   return (
     <div className="pb-5">
-      <Tabs defaultActiveKey="jadwal" className="mb-4 border-bottom-0">
-        <Tab
-          eventKey="jadwal"
-          title={
-            <>
-              <Calendar size={18} className="me-2" />
-              Kelola Jadwal
-            </>
-          }
-        >
-          <ScheduleTab user={user} students={students} showModal={showModal} />
-        </Tab>
+      <Tabs
+        activeKey={activeTab}
+        onSelect={handleTabChange}
+        className="mb-4 border-bottom-0"
+      >
+        {Object.entries(TAB_REGISTRY).map(([key, cfg]) => {
+          const Icon = cfg.icon;
+          const Component = cfg.component;
 
-        <Tab
-          eventKey="nilai"
-          title={
-            <>
-              <UserCheck size={18} className="me-2" />
-              Input Nilai
-            </>
-          }
-        >
-          <GradeTab user={user} students={students} showModal={showModal} />
-        </Tab>
-
-        <Tab
-          eventKey="bank_soal"
-          title={
-            <>
-              <FileText size={18} className="me-2" />
-              Bank Soal
-            </>
-          }
-        >
-          <QuestionBankTab user={user} showModal={showModal} />
-        </Tab>
-
-        <Tab
-          eventKey="materi"
-          title={
-            <>
-              <Upload size={18} className="me-2" />
-              Upload Materi
-            </>
-          }
-        >
-          <MaterialTab user={user} showModal={showModal} />
-        </Tab>
+          return (
+            <Tab
+              key={key}
+              eventKey={key}
+              title={
+                <>
+                  <Icon size={18} className="me-2" />
+                  {cfg.label}
+                </>
+              }
+            >
+              <Component
+                user={user}
+                students={students}
+                showModal={showModal}
+              />
+            </Tab>
+          );
+        })}
       </Tabs>
 
       <Modal
@@ -102,10 +118,10 @@ export default function TeacherDashboard() {
       >
         <Modal.Body className="text-center p-4">
           <div
-            className={`mx-auto mb-3 p-3 rounded-full w-fit ${
+            className={`mx-auto mb-3 p-3 rounded-circle ${
               modalData.type === "error"
-                ? "bg-red-100 text-red-600"
-                : "bg-green-100 text-green-600"
+                ? "bg-danger bg-opacity-10 text-danger"
+                : "bg-success bg-opacity-10 text-success"
             }`}
           >
             {modalData.type === "error" ? (
