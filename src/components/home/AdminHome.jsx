@@ -62,7 +62,7 @@ export default function AdminHome({ user }) {
             <h1 className="fw-bold display-5 text-dark mb-2">
               Selamat Datang,{" "}
               <span className="text-primary">
-                {user?.full_name || "Admin"}
+                {user?.full_name || user?.name || "Admin"}
               </span>
             </h1>
             <p className="text-muted lead mb-0">

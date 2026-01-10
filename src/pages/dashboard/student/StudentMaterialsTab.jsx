@@ -16,16 +16,32 @@ import {
   Video,
   Eye,
   ExternalLink,
+  Lock
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
-export default function StudentMaterialsTab() {
+export default function StudentMaterialsTab({ isExpired }) {
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
   const [showViewModal, setShowViewModal] = useState(false);
   const [activeMaterial, setActiveMaterial] = useState(null);
+
+  // --- BLOKIR JIKA EXPIRED ---
+  if (isExpired) {
+    return (
+      <div className="text-center py-5">
+        <div className="bg-danger bg-opacity-10 p-4 rounded-circle d-inline-block mb-3">
+          <Lock size={48} className="text-danger" />
+        </div>
+        <h5 className="fw-bold text-dark">Materi Terkunci</h5>
+        <p className="text-muted">
+          Perpanjang paket untuk mengakses perpustakaan materi dan modul.
+        </p>
+      </div>
+    );
+  }
 
   useEffect(() => {
     fetchMaterials();
@@ -37,12 +53,7 @@ export default function StudentMaterialsTab() {
     try {
       const { data, error } = await supabase
         .from("materials")
-        .select(
-          `
-          *,
-          teacher:profiles!teacher_id(full_name)
-        `
-        )
+        .select(`*, teacher:profiles!teacher_id(full_name)`)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -60,11 +71,7 @@ export default function StudentMaterialsTab() {
 
   const fetchMaterialsFallback = async () => {
     try {
-      const { data, error } = await supabase
-        .from("materials")
-        .select("*")
-        .order("created_at", { ascending: false });
-
+      const { data, error } = await supabase.from("materials").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       setMaterials(data || []);
     } catch {
@@ -103,9 +110,7 @@ export default function StudentMaterialsTab() {
 
   if (errorMsg) {
     return (
-      <Alert variant="danger" className="border-0 shadow-sm rounded-3">
-        {errorMsg}
-      </Alert>
+      <Alert variant="danger" className="border-0 shadow-sm rounded-3">{errorMsg}</Alert>
     );
   }
 
@@ -113,9 +118,7 @@ export default function StudentMaterialsTab() {
     <div className="animate-fade-in">
       <div className="mb-4">
         <h5 className="fw-bold mb-1">Perpustakaan Materi</h5>
-        <p className="text-muted small">
-          Unduh atau lihat langsung materi yang diupload guru.
-        </p>
+        <p className="text-muted small">Unduh atau lihat langsung materi yang diupload guru.</p>
       </div>
 
       {materials.length === 0 ? (
@@ -124,9 +127,7 @@ export default function StudentMaterialsTab() {
             <BookOpen size={24} className="text-info opacity-75" />
             <div>
               <strong>Belum ada materi tersedia.</strong>
-              <div className="small text-muted">
-                Guru belum mengunggah materi baru.
-              </div>
+              <div className="small text-muted">Guru belum mengunggah materi baru.</div>
             </div>
           </div>
         </Alert>
@@ -139,55 +140,22 @@ export default function StudentMaterialsTab() {
                   <div className="p-3 rounded-3 me-3 bg-primary bg-opacity-10 text-primary">
                     {getFileIcon(m.file_url)}
                   </div>
-
                   <div className="flex-grow-1" style={{ minWidth: 0 }}>
                     <div className="d-flex gap-1 mb-1">
-                      <Badge
-                        bg="light"
-                        className="text-secondary border fw-normal"
-                      >
-                        {m.subject}
-                      </Badge>
-                      {m.kelas && (
-                        <Badge
-                          bg="info"
-                          className="bg-opacity-10 text-info border fw-normal"
-                        >
-                          Kls {m.kelas}
-                        </Badge>
-                      )}
+                      <Badge bg="light" className="text-secondary border fw-normal">{m.subject}</Badge>
+                      {m.kelas && <Badge bg="info" className="bg-opacity-10 text-info border fw-normal">Kls {m.kelas}</Badge>}
                     </div>
-                    <h6 className="fw-bold mb-1 text-truncate" title={m.title}>
-                      {m.title}
-                    </h6>
+                    <h6 className="fw-bold mb-1 text-truncate" title={m.title}>{m.title}</h6>
                     <small className="text-muted text-truncate d-block">
-                      {m.teacher?.full_name
-                        ? `Oleh: ${m.teacher.full_name}`
-                        : "Bimbel Mapa"}
+                      {m.teacher?.full_name ? `Oleh: ${m.teacher.full_name}` : "Bimbel Mapa"}
                     </small>
                   </div>
-
                   {m.file_url && (
                     <div className="d-flex gap-1 ms-2">
-                      <Button
-                        variant="light"
-                        size="sm"
-                        className="rounded-circle p-2 border"
-                        onClick={() => openView(m)}
-                        title="Lihat Materi"
-                      >
+                      <Button variant="light" size="sm" className="rounded-circle p-2 border" onClick={() => openView(m)} title="Lihat Materi">
                         <Eye size={18} />
                       </Button>
-
-                      <Button
-                        variant="light"
-                        size="sm"
-                        className="rounded-circle p-2 border"
-                        href={m.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Download / Buka Tab Baru"
-                      >
+                      <Button variant="light" size="sm" className="rounded-circle p-2 border" href={m.file_url} target="_blank" rel="noopener noreferrer" title="Download">
                         <Download size={18} />
                       </Button>
                     </div>
@@ -199,46 +167,25 @@ export default function StudentMaterialsTab() {
         </Row>
       )}
 
-      <Modal
-        show={showViewModal}
-        onHide={() => setShowViewModal(false)}
-        fullscreen
-        centered
-      >
+      <Modal show={showViewModal} onHide={() => setShowViewModal(false)} fullscreen centered>
         <Modal.Header closeButton>
           <Modal.Title className="h6 mb-0">{activeMaterial?.title}</Modal.Title>
         </Modal.Header>
-
         <Modal.Body className="bg-dark bg-opacity-10 p-2 p-md-4">
           {activeMaterial?.file_url && (
             <>
               {getFileType(activeMaterial.file_url) === "pdf" && (
-                <iframe
-                  src={activeMaterial.file_url}
-                  title="PDF Viewer"
-                  style={{ width: "100%", height: "100%", border: "none" }}
-                />
+                <iframe src={activeMaterial.file_url} title="PDF Viewer" style={{ width: "100%", height: "100%", border: "none" }} />
               )}
-
               {getFileType(activeMaterial.file_url) === "video" && (
-                <video
-                  src={activeMaterial.file_url}
-                  controls
-                  style={{ width: "100%", maxHeight: "90vh" }}
-                />
+                <video src={activeMaterial.file_url} controls style={{ width: "100%", maxHeight: "90vh" }} />
               )}
-
               {getFileType(activeMaterial.file_url) === "file" && (
                 <div className="text-center py-5">
                   <FileText size={48} className="mb-3 text-muted" />
                   <p className="mb-3">File tidak dapat dipratinjau langsung.</p>
-                  <Button
-                    href={activeMaterial.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink size={16} className="me-2" />
-                    Buka di Tab Baru
+                  <Button href={activeMaterial.file_url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink size={16} className="me-2" /> Buka di Tab Baru
                   </Button>
                 </div>
               )}
