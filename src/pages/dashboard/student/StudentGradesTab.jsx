@@ -29,10 +29,7 @@ export default function StudentGradesTab({ user }) {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      /* =========================
-         NILAI LATIHAN
-      ========================= */
-      const { data: attempts, error: attemptError } = await supabase
+      const { data: attempts } = await supabase
         .from("student_attempts")
         .select(`
           id,
@@ -46,13 +43,7 @@ export default function StudentGradesTab({ user }) {
         .eq("student_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (attemptError) throw attemptError;
-      setExerciseScores(attempts || []);
-
-      /* =========================
-         NILAI GURU
-      ========================= */
-      const { data: grades, error: gradeError } = await supabase
+      const { data: grades } = await supabase
         .from("grades")
         .select(`
           *,
@@ -61,35 +52,22 @@ export default function StudentGradesTab({ user }) {
         .eq("student_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (gradeError) throw gradeError;
+      setExerciseScores(attempts || []);
       setTeacherGrades(grades || []);
-    } catch {
-      setExerciseScores([]);
-      setTeacherGrades([]);
     } finally {
       setLoading(false);
     }
   };
 
-  /* =========================
-     FORMATTER (DIKUNCI)
-  ========================= */
-  const formatScore = (value) => {
-    if (value === null || value === undefined) return "-";
-    return Math.round(Number(value));
-  };
+  const formatScore = (v) =>
+    v === null || v === undefined ? "-" : Math.round(Number(v));
 
-  const calcAverage = (list) => {
-    if (!list.length) return 0;
-    const total = list.reduce(
-      (acc, curr) => acc + (Number(curr.score) || 0),
-      0
-    );
-    return Math.round(total / list.length);
-  };
-
-  const avgExercise = calcAverage(exerciseScores);
-  const avgTeacher = calcAverage(teacherGrades);
+  const avg = (list) =>
+    list.length === 0
+      ? 0
+      : Math.round(
+          list.reduce((a, b) => a + (b.score || 0), 0) / list.length
+        );
 
   if (loading) {
     return (
@@ -99,157 +77,164 @@ export default function StudentGradesTab({ user }) {
     );
   }
 
+  /* ===========================
+     MOBILE VIEW (STACKED)
+  ============================ */
+  const MobileView = () => (
+    <div className="d-block d-md-none">
+      {/* LATIHAN */}
+      <Card className="mb-3 bg-success text-white border-0 rounded-4">
+        <Card.Body>
+          <h6>Rata-rata Nilai Latihan</h6>
+          <h1 className="fw-bold">{avg(exerciseScores)}</h1>
+        </Card.Body>
+      </Card>
+
+      <SectionTable
+        title="Riwayat Latihan"
+        icon={<BookOpen size={18} />}
+        rows={exerciseScores}
+        type="exercise"
+      />
+
+      {/* GURU */}
+      <Card className="my-3 bg-primary text-white border-0 rounded-4">
+        <Card.Body>
+          <h6>Rata-rata Nilai Guru</h6>
+          <h1 className="fw-bold">{avg(teacherGrades)}</h1>
+        </Card.Body>
+      </Card>
+
+      <SectionTable
+        title="Riwayat Penilaian Guru"
+        icon={<TrendingUp size={18} />}
+        rows={teacherGrades}
+        type="teacher"
+      />
+    </div>
+  );
+
+  /* ===========================
+     DESKTOP VIEW (GRID)
+  ============================ */
+  const DesktopView = () => (
+    <div className="d-none d-md-block">
+      {/* SUMMARY */}
+      <Row className="mb-4">
+        <Col md={6}>
+          <SummaryCard
+            title="Rata-rata Nilai Latihan"
+            value={avg(exerciseScores)}
+            color="success"
+            icon={<Award size={48} />}
+          />
+        </Col>
+        <Col md={6}>
+          <SummaryCard
+            title="Rata-rata Nilai Guru"
+            value={avg(teacherGrades)}
+            color="primary"
+            icon={<GraduationCap size={48} />}
+          />
+        </Col>
+      </Row>
+
+      {/* TABLES */}
+      <Row>
+        <Col md={6}>
+          <SectionTable
+            title="Riwayat Latihan"
+            icon={<BookOpen size={18} />}
+            rows={exerciseScores}
+            type="exercise"
+            dense
+          />
+        </Col>
+        <Col md={6}>
+          <SectionTable
+            title="Riwayat Penilaian Guru"
+            icon={<TrendingUp size={18} />}
+            rows={teacherGrades}
+            type="teacher"
+            dense
+          />
+        </Col>
+      </Row>
+    </div>
+  );
+
   return (
     <div className="animate-fade-in">
-      {/* ===============================
-          SECTION: NILAI LATIHAN
-      =============================== */}
-      <Row className="mb-4">
-        <Col md={5} lg={4}>
-          <Card className="border-0 shadow-sm rounded-4 bg-success text-white h-100 overflow-hidden">
-            <Card.Body className="position-relative p-4">
-              <div className="position-absolute top-0 end-0 p-3 opacity-25">
-                <Award size={72} />
-              </div>
-              <h6 className="text-white text-opacity-75">
-                Rata-rata Nilai Latihan
-              </h6>
-              <h1 className="fw-bold display-4 mb-0">
-                {avgExercise}
-              </h1>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      <h5 className="fw-bold mb-3 d-flex align-items-center">
-        <BookOpen size={20} className="me-2 text-success" />
-        Riwayat Latihan
-      </h5>
-
-      <Card className="border-0 shadow-sm rounded-4 mb-5">
-        {exerciseScores.length === 0 ? (
-          <Alert variant="light" className="m-4">
-            Belum ada nilai latihan.
-          </Alert>
-        ) : (
-          <div className="table-responsive">
-            <Table hover className="mb-0 align-middle">
-              <thead className="bg-light">
-                <tr>
-                  <th className="ps-4">Paket</th>
-                  <th>Mata Pelajaran</th>
-                  <th>Tanggal</th>
-                  <th className="text-end pe-4">Skor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {exerciseScores.map((e) => (
-                  <tr key={e.id}>
-                    <td className="ps-4 fw-bold">
-                      {e.package?.title || "-"}
-                    </td>
-                    <td>{e.package?.subject || "-"}</td>
-                    <td>
-                      <Calendar size={14} className="me-1 text-success" />
-                      {new Date(e.created_at).toLocaleDateString("id-ID")}
-                    </td>
-                    <td className="text-end pe-4">
-                      <span
-                        className={`fw-bold ${
-                          formatScore(e.score) >= 80
-                            ? "text-success"
-                            : formatScore(e.score) >= 60
-                            ? "text-warning"
-                            : "text-danger"
-                        }`}
-                      >
-                        {formatScore(e.score)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </div>
-        )}
-      </Card>
-
-      {/* ===============================
-          SECTION: NILAI GURU
-      =============================== */}
-      <Row className="mb-4">
-        <Col md={5} lg={4}>
-          <Card className="border-0 shadow-sm rounded-4 bg-primary text-white h-100 overflow-hidden">
-            <Card.Body className="position-relative p-4">
-              <div className="position-absolute top-0 end-0 p-3 opacity-25">
-                <GraduationCap size={72} />
-              </div>
-              <h6 className="text-white text-opacity-75">
-                Rata-rata Nilai Guru
-              </h6>
-              <h1 className="fw-bold display-4 mb-0">
-                {avgTeacher}
-              </h1>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      <h5 className="fw-bold mb-3 d-flex align-items-center">
-        <TrendingUp size={20} className="me-2 text-primary" />
-        Riwayat Penilaian Guru
-      </h5>
-
-      <Card className="border-0 shadow-sm rounded-4">
-        {teacherGrades.length === 0 ? (
-          <Alert variant="light" className="m-4">
-            Belum ada penilaian dari guru.
-          </Alert>
-        ) : (
-          <div className="table-responsive">
-            <Table hover className="mb-0 align-middle">
-              <thead className="bg-light">
-                <tr>
-                  <th className="ps-4">Mata Pelajaran</th>
-                  <th>Guru</th>
-                  <th>Tanggal</th>
-                  <th className="text-end pe-4">Nilai</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teacherGrades.map((g) => (
-                  <tr key={g.id}>
-                    <td className="ps-4 fw-bold">
-                      {g.subject}
-                    </td>
-                    <td>
-                      {g.teacher?.full_name || "-"}
-                    </td>
-                    <td>
-                      <Calendar size={14} className="me-1 text-primary" />
-                      {new Date(g.created_at).toLocaleDateString("id-ID")}
-                    </td>
-                    <td className="text-end pe-4">
-                      <span
-                        className={`fw-bold ${
-                          formatScore(g.score) >= 80
-                            ? "text-success"
-                            : formatScore(g.score) >= 60
-                            ? "text-warning"
-                            : "text-danger"
-                        }`}
-                      >
-                        {formatScore(g.score)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </div>
-        )}
-      </Card>
+      <MobileView />
+      <DesktopView />
     </div>
+  );
+}
+
+/* ===========================
+   REUSABLE COMPONENTS
+=========================== */
+
+function SummaryCard({ title, value, color, icon }) {
+  return (
+    <Card className={`bg-${color} text-white border-0 rounded-4`}>
+      <Card.Body className="position-relative">
+        <div className="position-absolute top-0 end-0 p-3 opacity-25">
+          {icon}
+        </div>
+        <h6 className="text-white text-opacity-75">{title}</h6>
+        <h1 className="fw-bold">{value}</h1>
+      </Card.Body>
+    </Card>
+  );
+}
+
+function SectionTable({ title, icon, rows, type, dense }) {
+  if (!rows.length) {
+    return (
+      <Alert variant="light" className="mt-3">
+        Tidak ada data.
+      </Alert>
+    );
+  }
+
+  return (
+    <Card className="border-0 shadow-sm rounded-4 mt-3">
+      <Card.Body className={dense ? "p-2" : "p-3"}>
+        <h6 className="fw-bold d-flex align-items-center gap-2 mb-3">
+          {icon} {title}
+        </h6>
+
+        <div className="table-responsive">
+          <Table hover size={dense ? "sm" : undefined} className="mb-0">
+            <thead className="bg-light">
+              <tr>
+                <th>Info</th>
+                <th>Tanggal</th>
+                <th className="text-end">Nilai</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="fw-bold">
+                    {type === "exercise"
+                      ? r.package?.title
+                      : r.subject}
+                  </td>
+                  <td>
+                    <Calendar size={14} className="me-1" />
+                    {new Date(r.created_at).toLocaleDateString("id-ID")}
+                  </td>
+                  <td className="text-end fw-bold">
+                    {Math.round(r.score)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </div>
+      </Card.Body>
+    </Card>
   );
 }
