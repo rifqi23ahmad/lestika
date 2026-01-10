@@ -55,7 +55,7 @@ const StudentHome = ({ user, activeInvoice }) => {
               onClick={() => handleNavigation("/jadwal")}
             >
               <Calendar size={18} className="me-2" />
-              Jawdal
+              Jadwal
             </Button>
           </div>
         </Col>

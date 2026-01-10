@@ -1,16 +1,16 @@
+// src/components/admin/panels/AdminPackagePanel.jsx
 import React, { useState, useEffect } from "react";
 import { Card, Button, Table, Form, Row, Col } from "react-bootstrap";
 import { Plus, Edit, Trash2 } from "lucide-react";
-import { packageService } from "../../../services/packageService"; // Adjust path
+import { packageService } from "../../../services/packageService";
 
 export default function AdminPackagePanel({ showInfo, showConfirm }) {
   const [packages, setPackages] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentPkg, setCurrentPkg] = useState({
-    title: "",
-    price: "",
-    features: "",
-  });
+  
+  // State awal dipisah agar mudah di-reset
+  const initialPkgState = { title: "", price: "", features: "" };
+  const [currentPkg, setCurrentPkg] = useState(initialPkgState);
 
   useEffect(() => {
     loadPackages();
@@ -22,33 +22,41 @@ export default function AdminPackagePanel({ showInfo, showConfirm }) {
       setPackages(data);
     } catch (err) {
       console.error(err);
+      showInfo("Error", "Gagal memuat paket.", "error");
     }
   };
 
   const handleSavePkg = async (e) => {
     e.preventDefault();
-    const formattedFeatures =
-      typeof currentPkg.features === "string"
-        ? currentPkg.features.split(",").map((f) => f.trim())
+
+    // 1. Format Fitur (Array)
+    const formattedFeatures = typeof currentPkg.features === "string"
+        ? currentPkg.features.split(",").map((f) => f.trim()).filter(f => f) // filter(f=>f) menghapus string kosong
         : currentPkg.features;
 
+    // 2. Format Harga
+    const numericPrice = Number(currentPkg.price);
+    
+    // Payload preparation
     const payload = {
       ...currentPkg,
       features: formattedFeatures,
-      price: Number(currentPkg.price),
-      price_display:
-        currentPkg.price_display ||
-        `Rp ${Number(currentPkg.price).toLocaleString("id-ID")}`,
+      price: numericPrice,
+      price_display: `Rp ${numericPrice.toLocaleString("id-ID")}`,
     };
 
     try {
-      if (currentPkg.id) await packageService.update(currentPkg.id, payload);
-      else await packageService.create(payload);
+      if (currentPkg.id) {
+        await packageService.update(currentPkg.id, payload);
+      } else {
+        await packageService.create(payload);
+      }
 
       setIsEditing(false);
       loadPackages();
       showInfo("Disimpan", "Data paket berhasil disimpan.", "success");
     } catch (err) {
+      console.error(err);
       showInfo("Gagal", "Gagal menyimpan paket.", "error");
     }
   };
@@ -59,9 +67,13 @@ export default function AdminPackagePanel({ showInfo, showConfirm }) {
       "Yakin ingin menghapus paket ini permanen?",
       "danger",
       async () => {
-        await packageService.delete(id);
-        loadPackages();
-        showInfo("Terhapus", "Paket berhasil dihapus.", "success");
+        try {
+          await packageService.delete(id);
+          loadPackages();
+          showInfo("Terhapus", "Paket berhasil dihapus.", "success");
+        } catch (error) {
+          showInfo("Gagal", "Gagal menghapus paket.", "error");
+        }
       }
     );
   };
@@ -69,12 +81,15 @@ export default function AdminPackagePanel({ showInfo, showConfirm }) {
   const openEditPkg = (pkg) => {
     setCurrentPkg({
       ...pkg,
-      features: Array.isArray(pkg.features)
-        ? pkg.features.join(", ")
-        : pkg.features,
+      features: Array.isArray(pkg.features) ? pkg.features.join(", ") : pkg.features,
       price: pkg.price,
     });
     setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setCurrentPkg(initialPkgState);
   };
 
   return (
@@ -84,7 +99,7 @@ export default function AdminPackagePanel({ showInfo, showConfirm }) {
         <Button
           size="sm"
           onClick={() => {
-            setCurrentPkg({ title: "", price: "", features: "" });
+            setCurrentPkg(initialPkgState);
             setIsEditing(true);
           }}
         >
@@ -136,7 +151,7 @@ export default function AdminPackagePanel({ showInfo, showConfirm }) {
                 type="button"
                 size="sm"
                 variant="secondary"
-                onClick={() => setIsEditing(false)}
+                onClick={handleCancel}
               >
                 Batal
               </Button>
