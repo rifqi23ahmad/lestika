@@ -41,19 +41,24 @@ const InvoicePaper = forwardRef(({ invoice, children }, ref) => {
       style={{
         width: "800px",
         minWidth: "800px",
-        minHeight: "1123px",
+        minHeight: "1123px", // Ukuran proporsional A4
         padding: "48px",
         backgroundColor: "#ffffff",
       }}
     >
+      {/* HEADER SECTION */}
       <div className="d-flex flex-row justify-content-between align-items-start border-bottom pb-4 mb-4 gap-4">
         <div className="d-flex flex-column">
           <div className="d-flex align-items-center mb-3">
+            {/* CRITICAL FIX: crossOrigin="anonymous" 
+                Diperlukan agar html2canvas bisa merender gambar lokal/eksternal tanpa error CORS 
+            */}
             <img
               src="/logo.png"
               alt="Logo"
               style={{ height: "40px", width: "auto" }}
               className="me-3"
+              crossOrigin="anonymous" 
             />
             <div>
               <h4
@@ -61,7 +66,6 @@ const InvoicePaper = forwardRef(({ invoice, children }, ref) => {
                 style={{ letterSpacing: "-0.5px" }}
               >
                 MAPA
-                
               </h4>
             </div>
           </div>
@@ -90,6 +94,7 @@ const InvoicePaper = forwardRef(({ invoice, children }, ref) => {
         </div>
       </div>
 
+      {/* CUSTOMER INFO */}
       <Row className="mb-5">
         <Col md={6}>
           <h6 className="text-uppercase text-muted small fw-bold mb-3">
@@ -104,6 +109,7 @@ const InvoicePaper = forwardRef(({ invoice, children }, ref) => {
         </Col>
       </Row>
 
+      {/* ITEMS TABLE */}
       <Table className="mb-4 align-middle" bordered={false}>
         <thead className="bg-light text-secondary">
           <tr>
@@ -130,6 +136,7 @@ const InvoicePaper = forwardRef(({ invoice, children }, ref) => {
         </tbody>
       </Table>
 
+      {/* TOTAL SUMMARY */}
       <Row className="justify-content-end mb-5">
         <Col md={5}>
           <div className="d-flex justify-content-between mb-2">
@@ -151,6 +158,7 @@ const InvoicePaper = forwardRef(({ invoice, children }, ref) => {
         </Col>
       </Row>
 
+      {/* PAYMENT METHODS */}
       <div className="bg-light p-4 rounded mb-5 border border-light">
         <h6 className="fw-bold mb-3 d-flex align-items-center">
           Metode Pembayaran
@@ -175,6 +183,7 @@ const InvoicePaper = forwardRef(({ invoice, children }, ref) => {
         </Row>
       </div>
 
+      {/* FOOTER & DISCLAIMER */}
       <div className="mt-auto pt-5 text-center">
         <p className="text-muted fst-italic small mb-1">
           "Terima kasih telah mempercayakan pendidikan Anda bersama MAPA."
@@ -187,7 +196,8 @@ const InvoicePaper = forwardRef(({ invoice, children }, ref) => {
         </p>
       </div>
 
-      <div data-html2canvas-ignore className="mt-4">
+      {/* ALERT & UPLOAD AREA (Will be hidden/ignored by html2canvas if configured) */}
+      <div className="mt-4 upload-section" data-html2canvas-ignore>
         {invoice.status === APP_CONFIG.INVOICE.STATUS.WAITING && (
           <Alert
             variant="info"

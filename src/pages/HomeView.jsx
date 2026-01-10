@@ -24,8 +24,11 @@ export default function HomeView() {
   const [packages, setPackages] = useState([]);
   const [testimonials, setTestimonials] = useState([]);
   
+  // State Profile (untuk Nama Siswa)
+  const [profile, setProfile] = useState(null);
+
   // State untuk status langganan
-  const [activeInvoice, setActiveInvoice] = useState(null);
+  const [lastPaidInvoice, setLastPaidInvoice] = useState(null); // Ganti nama biar lebih jelas
   const [waitingInvoice, setWaitingInvoice] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -58,7 +61,10 @@ export default function HomeView() {
       if (user.role === "guru" || user.role === "admin") {
         setCheckingStatus(false);
       } else {
-        checkActiveSubscription();
+        // Fetch Profile & Subscription secara paralel
+        Promise.all([fetchProfile(), checkSubscriptionStatus()]).finally(() => {
+            setCheckingStatus(false);
+        });
       }
     } else {
       setCheckingStatus(false);
@@ -66,6 +72,21 @@ export default function HomeView() {
 
     return () => window.removeEventListener("resize", handleResize);
   }, [user]);
+
+  const fetchProfile = async () => {
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+        if (!error && data) {
+            setProfile(data);
+        }
+    } catch (err) {
+        console.error("Error fetching profile:", err);
+    }
+  };
 
   const fetchPackages = async () => {
     try {
@@ -91,18 +112,19 @@ export default function HomeView() {
     }
   };
 
-  const checkActiveSubscription = async () => {
+  // --- LOGIC UTAMA MENENTUKAN STATUS ---
+  const checkSubscriptionStatus = async () => {
     try {
       const { data: invoices, error } = await supabase
         .from("invoices")
         .select("*")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }); // Urutkan dari yg terbaru
 
       if (error) throw error;
 
       if (invoices?.length > 0) {
-        // Cek Waiting / Unpaid
+        // 1. Cek apakah ada yang statusnya Waiting / Unpaid
         const waiting = invoices.find(inv => 
             inv.status === 'waiting_confirmation' || 
             inv.status === 'waiting' ||
@@ -110,24 +132,23 @@ export default function HomeView() {
         );
         if (waiting) setWaitingInvoice(waiting);
 
-        // Cek Active
-        const active = invoices.find(inv => 
-            inv.status === 'paid' && 
-            new Date(inv.expiry_date) > new Date()
-        );
-        if (active) setActiveInvoice(active);
+        // 2. Ambil invoice PAID yang paling terakhir (terlepas dari tanggal expiry)
+        // Ini penting agar kita tahu user statusnya "Active" atau "Expired"
+        const lastPaid = invoices.find(inv => inv.status === 'paid');
+        
+        if (lastPaid) {
+             setLastPaidInvoice(lastPaid);
+        }
       }
     } catch (error) {
       console.error("Subscription Check Error:", error);
-    } finally {
-      setCheckingStatus(false);
     }
   };
 
   // --- 2. Logic Klik Paket (Membuka Modal) ---
   const handlePackageClick = (pkg) => {
     if (user) {
-        // Cek Blocker
+        // Cek Blocker: Ada tagihan belum lunas
         if (waitingInvoice) {
             if (waitingInvoice.status === 'unpaid') {
                 navigate("/invoice", { state: { invoice: waitingInvoice } });
@@ -142,9 +163,18 @@ export default function HomeView() {
             return;
         }
 
-        if (activeInvoice && !isBuyMode) {
-            navigate("/student/dashboard");
-            return;
+        // Cek Blocker: Masih punya paket aktif (bukan expired)
+        if (lastPaidInvoice) {
+             const isExpired = new Date(lastPaidInvoice.expiry_date) < new Date();
+             if (!isExpired && !isBuyMode) {
+                setStatusModal({
+                    show: true,
+                    title: "Paket Aktif",
+                    msg: `Anda masih memiliki paket aktif "${lastPaidInvoice.package_name}".`,
+                    type: "info",
+                });
+                return;
+             }
         }
 
         // BUKA MODAL KONFIRMASI
@@ -156,35 +186,35 @@ export default function HomeView() {
     }
   };
 
-  // --- 3. Proses Pembelian (Bayar Sekarang / Nanti) ---
+  // --- 3. Proses Pembelian ---
   const handleConfirmPurchase = async (payNow) => {
     if (!purchaseModal.pkg) return;
     setProcessingOrder(true);
 
     try {
-        // Ambil Profil
-        const { data: profile, error: profileError } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", user.id)
-            .single();
-
-        if (profileError) throw new Error("Gagal memuat data profil.");
+        let currentProfile = profile;
+        if (!currentProfile) {
+            const { data: fetchedProfile } = await supabase
+                .from("profiles")
+                .select("*")
+                .eq("id", user.id)
+                .single();
+            currentProfile = fetchedProfile;
+        }
 
         const pkg = purchaseModal.pkg;
         const adminFee = 0; 
         const totalAmount = Number(pkg.price) + adminFee;
 
-        // Payload
         const payload = {
             invoice_no: `INV-${Date.now()}`,
             user_id: user.id,
             email: user.email,
             
-            student_name: profile.full_name || user.user_metadata?.full_name || user.email,
-            student_jenjang: profile.jenjang || "Umum", 
-            student_kelas: profile.kelas || "-",        
-            student_whatsapp: profile.phone || profile.whatsapp || "-",
+            student_name: currentProfile?.full_name || user.user_metadata?.full_name || user.email,
+            student_jenjang: currentProfile?.jenjang || "Umum", 
+            student_kelas: currentProfile?.kelas || "-",        
+            student_whatsapp: currentProfile?.phone || currentProfile?.whatsapp || "-",
             
             package_id: pkg.id,
             package_name: pkg.title,
@@ -193,7 +223,7 @@ export default function HomeView() {
             admin_fee: adminFee,
             total_amount: totalAmount, 
             
-            status: "unpaid", // Status awal unpaid
+            status: "unpaid",
             created_at: new Date()
         };
 
@@ -207,13 +237,12 @@ export default function HomeView() {
         
         setPurchaseModal({ show: false, pkg: null });
 
+        // Update local state
+        setWaitingInvoice(data);
+        // Jangan reset lastPaidInvoice dulu, karena logic UI akan memprioritaskan waitingInvoice
+
         if (payNow) {
-            // BAYAR SEKARANG -> Ke Halaman Invoice (Upload)
             navigate("/invoice", { state: { invoice: data } });
-        } else {
-            // BAYAR NANTI -> Ke Dashboard
-            // Optional: Tampilkan notifikasi kecil/modal sukses dulu
-            navigate("/student/dashboard");
         }
         
     } catch (error) {
@@ -239,102 +268,114 @@ export default function HomeView() {
     );
   }
 
+  // --- LOGIC PENENTUAN STATUS UNTUK UI ---
+  // Urutan prioritas:
+  // 1. Waiting / Unpaid -> Tampilkan status tagihan
+  // 2. Paid -> Cek tanggalnya (Active vs Expired)
+  // 3. Tidak ada invoice -> None
+
+  let studentStatus = 'none';
+  let displayInvoice = null;
+
+  if (user) {
+    if (waitingInvoice) {
+      displayInvoice = waitingInvoice;
+      studentStatus = waitingInvoice.status === 'unpaid' ? 'unpaid' : 'waiting';
+    } else if (lastPaidInvoice) {
+      displayInvoice = lastPaidInvoice;
+      // CEK EXPIRED DATE DI SINI
+      const today = new Date();
+      const expiryDate = new Date(lastPaidInvoice.expiry_date);
+      
+      const isExpired = expiryDate < today;
+      studentStatus = isExpired ? 'expired' : 'active';
+    } else {
+      studentStatus = 'none';
+    }
+  }
+
   // Role Guru & Admin
   if (user && user.role === "guru") return <TeacherHome user={user} />;
   if (user && user.role === "admin") return <AdminHome user={user} />;
 
-  // Siswa: Menunggu Verifikasi
-  if (user && waitingInvoice && waitingInvoice.status !== 'unpaid' && !isBuyMode) {
+  // --- TAMPILAN SISWA ---
+  if (user) {
     return (
-      <Container className="d-flex flex-column align-items-center justify-content-center text-center" style={{ minHeight: "80vh" }}>
-        {/* ... (Kode Tampilan Waiting sama seperti sebelumnya) ... */}
-        <div className="bg-warning bg-opacity-10 p-4 rounded-circle mb-4 text-warning">
-          <Clock size={64} />
-        </div>
-        <h2 className="fw-bold mb-3">Menunggu Verifikasi Admin</h2>
-        <p className="text-muted lead mb-4" style={{ maxWidth: "600px" }}>
-          Pembelian paket <strong>{waitingInvoice.package_name}</strong> Anda sedang diproses.
-        </p>
-        <Button variant="primary" size="lg" className="rounded-pill px-5" onClick={() => navigate("/invoice")}>
-          Cek Status
-        </Button>
-      </Container>
+      <>
+        <StudentHome 
+          user={user} 
+          profile={profile}
+          status={studentStatus} 
+          invoice={displayInvoice}
+          packages={packages}          
+          handlePackageClick={handlePackageClick} 
+        />
+
+        <Modal 
+          show={purchaseModal.show} 
+          onHide={() => !processingOrder && setPurchaseModal({ show: false, pkg: null })}
+          centered
+          backdrop="static"
+        >
+          <Modal.Header closeButton={!processingOrder} className="border-0 pb-0">
+            <Modal.Title className="fw-bold">Konfirmasi Pembelian</Modal.Title>
+          </Modal.Header>
+          <Modal.Body className="pt-2">
+            {purchaseModal.pkg && (
+              <div className="text-center">
+                <div className="bg-primary bg-opacity-10 p-3 rounded-4 mb-3 d-inline-block">
+                    <ShoppingBag size={40} className="text-primary" />
+                </div>
+                <h5 className="fw-bold text-dark">{purchaseModal.pkg.title}</h5>
+                <h3 className="fw-bold text-primary mb-3">{purchaseModal.pkg.price_display}</h3>
+                <p className="text-muted small">
+                  Anda akan membuat tagihan untuk paket ini. Silakan pilih metode pembayaran.
+                </p>
+              </div>
+            )}
+          </Modal.Body>
+          <Modal.Footer className="border-0 pt-0 d-flex flex-column flex-md-row gap-2 justify-content-center pb-4">
+              <Button 
+                  variant="outline-secondary" 
+                  className="rounded-pill px-4 fw-bold w-100"
+                  onClick={() => handleConfirmPurchase(false)}
+                  disabled={processingOrder}
+              >
+                  {processingOrder ? <Spinner size="sm" /> : <><Calendar size={18} className="me-2 mb-1"/> Bayar Nanti</>}
+              </Button>
+              <Button 
+                  variant="primary" 
+                  className="rounded-pill px-4 fw-bold w-100"
+                  onClick={() => handleConfirmPurchase(true)}
+                  disabled={processingOrder}
+              >
+                  {processingOrder ? <Spinner size="sm" /> : <><ArrowRight size={18} className="me-2 mb-1"/> Bayar Sekarang</>}
+              </Button>
+          </Modal.Footer>
+        </Modal>
+
+        <StatusModal
+          show={statusModal.show}
+          onHide={() => setStatusModal({ ...statusModal, show: false })}
+          title={statusModal.title}
+          message={statusModal.msg}
+          type={statusModal.type}
+        />
+      </>
     );
   }
 
-  // Siswa Aktif
-  if (user && activeInvoice && !isBuyMode) {
-    return <StudentHome user={user} activeInvoice={activeInvoice} />;
-  }
-
-  // PUBLIC HOME
+  // PUBLIC HOME (Belum Login)
   return (
-    <>
-      <PublicHome
-        packages={packages}
-        loading={loading}
-        testimonials={testimonials}
-        loadingTesti={loadingTesti}
-        user={user}
-        isMobile={isMobile}
-        handlePackageClick={handlePackageClick}
-        waitingInvoice={waitingInvoice}
-      />
-
-      {/* --- MODAL KONFIRMASI PEMBELIAN (BARU) --- */}
-      <Modal 
-        show={purchaseModal.show} 
-        onHide={() => !processingOrder && setPurchaseModal({ show: false, pkg: null })}
-        centered
-        backdrop="static" // Agar tidak ketutup tidak sengaja saat loading
-      >
-        <Modal.Header closeButton={!processingOrder} className="border-0 pb-0">
-          <Modal.Title className="fw-bold">Konfirmasi Pembelian</Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="pt-2">
-          {purchaseModal.pkg && (
-            <div className="text-center">
-               <div className="bg-primary bg-opacity-10 p-3 rounded-4 mb-3 d-inline-block">
-                  <ShoppingBag size={40} className="text-primary" />
-               </div>
-               <h5 className="fw-bold text-dark">{purchaseModal.pkg.title}</h5>
-               <h3 className="fw-bold text-primary mb-3">{purchaseModal.pkg.price_display}</h3>
-               <p className="text-muted small">
-                 Anda akan membuat tagihan untuk paket ini. Silakan pilih metode pembayaran.
-               </p>
-            </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer className="border-0 pt-0 d-flex flex-column flex-md-row gap-2 justify-content-center pb-4">
-            {/* TOMBOL BAYAR NANTI */}
-            <Button 
-                variant="outline-secondary" 
-                className="rounded-pill px-4 fw-bold w-100"
-                onClick={() => handleConfirmPurchase(false)}
-                disabled={processingOrder}
-            >
-                {processingOrder ? <Spinner size="sm" /> : <><Calendar size={18} className="me-2 mb-1"/> Bayar Nanti</>}
-            </Button>
-            
-            {/* TOMBOL BAYAR SEKARANG */}
-            <Button 
-                variant="primary" 
-                className="rounded-pill px-4 fw-bold w-100"
-                onClick={() => handleConfirmPurchase(true)}
-                disabled={processingOrder}
-            >
-                {processingOrder ? <Spinner size="sm" /> : <><ArrowRight size={18} className="me-2 mb-1"/> Bayar Sekarang</>}
-            </Button>
-        </Modal.Footer>
-      </Modal>
-
-      <StatusModal
-        show={statusModal.show}
-        onHide={() => setStatusModal({ ...statusModal, show: false })}
-        title={statusModal.title}
-        message={statusModal.msg}
-        type={statusModal.type}
-      />
-    </>
+    <PublicHome
+      packages={packages}
+      loading={loading}
+      testimonials={testimonials}
+      loadingTesti={loadingTesti}
+      user={user}
+      isMobile={isMobile}
+      handlePackageClick={handlePackageClick}
+      waitingInvoice={waitingInvoice}
+    />
   );
 }

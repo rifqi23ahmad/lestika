@@ -17,25 +17,23 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle,
-  ShoppingBag,
   ArrowLeft,
+  Lock,
   FileText,
+  Clock,
+  ShoppingBag
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 
 // Import Components
-import StudentHome from "../../components/home/StudentHome";
 import StudentInfoCard from "./student/StudentInfoCard";
 import StudentScheduleTab from "./student/StudentScheduleTab/StudentScheduleTab";
 import StudentMaterialsTab from "./student/StudentMaterialsTab";
 import StudentGradesTab from "./student/StudentGradesTab";
 import ExerciseTab from "./student/ExerciseTab";
 
-/* =========================
-   TYPE-SAFE TAB REGISTRY
-========================= */
 const TAB_REGISTRY = {
   jadwal: {
     label: "Jadwal Belajar",
@@ -59,7 +57,76 @@ const TAB_REGISTRY = {
   },
 };
 
-const DEFAULT_TAB = null;
+const DEFAULT_TAB = "jadwal";
+
+/* =========================================
+   INTERNAL COMPONENT: RESTRICTED VIEW
+   Tampilan jika user tidak memiliki akses
+========================================= */
+const RestrictedView = ({ status, navigate, activeInvoice }) => {
+  const getConfig = () => {
+    switch (status) {
+      case 'unpaid':
+        return {
+          icon: FileText,
+          color: 'warning',
+          title: 'Selesaikan Pembayaran',
+          msg: 'Fitur ini terkunci karena kamu belum menyelesaikan pembayaran paket.',
+          btnText: 'Bayar Sekarang',
+          action: () => navigate('/invoice', { state: { invoice: activeInvoice } })
+        };
+      case 'waiting':
+        return {
+          icon: Clock,
+          color: 'info',
+          title: 'Menunggu Verifikasi',
+          msg: 'Sabar ya, admin sedang memverifikasi pembayaranmu. Fitur akan terbuka otomatis setelah lunas.',
+          btnText: 'Cek Status',
+          action: () => navigate('/invoice')
+        };
+      case 'expired':
+        return {
+          icon: AlertTriangle,
+          color: 'danger',
+          title: 'Masa Aktif Berakhir',
+          msg: 'Masa aktif paket belajarmu sudah habis. Silakan perpanjang untuk mengakses kembali materi dan jadwal.',
+          btnText: 'Perpanjang Paket',
+          action: () => navigate('/') // Kembali ke home untuk pilih paket
+        };
+      default: // 'none'
+        return {
+          icon: Lock,
+          color: 'secondary',
+          title: 'Akses Terkunci',
+          msg: 'Kamu belum berlangganan paket belajar apapun. Yuk pilih paket dulu!',
+          btnText: 'Pilih Paket',
+          action: () => navigate('/')
+        };
+    }
+  };
+
+  const config = getConfig();
+  const Icon = config.icon;
+
+  return (
+    <div className="text-center py-5">
+      <div className={`bg-${config.color} bg-opacity-10 p-4 rounded-circle d-inline-block mb-3`}>
+        <Icon size={48} className={`text-${config.color}`} />
+      </div>
+      <h4 className="fw-bold mb-2">{config.title}</h4>
+      <p className="text-muted mb-4" style={{ maxWidth: '400px', margin: '0 auto' }}>
+        {config.msg}
+      </p>
+      <Button 
+        variant={config.color === 'secondary' ? 'primary' : config.color} 
+        className="rounded-pill px-4 fw-bold shadow-sm"
+        onClick={config.action}
+      >
+        {config.btnText}
+      </Button>
+    </div>
+  );
+};
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -68,24 +135,17 @@ export default function StudentDashboard() {
 
   const [activeInvoice, setActiveInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isExpired, setIsExpired] = useState(false);
+  
+  // State Status: 'none', 'active', 'expired', 'unpaid', 'waiting'
+  const [status, setStatus] = useState('none'); 
 
-  /* =========================
-     INFO MODAL STATE
-  ========================= */
   const [infoModal, setInfoModal] = useState({
-    show: false,
-    title: "",
-    msg: "",
-    type: "success",
+    show: false, title: "", msg: "", type: "success"
   });
 
   const showModal = (title, msg, type = "success") =>
     setInfoModal({ show: true, title, msg, type });
 
-  /* =========================
-     ACTIVE TAB FROM URL
-  ========================= */
   const activeTab = useMemo(() => {
     const t = searchParams.get("tab");
     return TAB_REGISTRY[t] ? t : DEFAULT_TAB;
@@ -96,11 +156,11 @@ export default function StudentDashboard() {
   };
 
   const goToHome = () => {
-    setSearchParams({});
+    navigate("/");
   };
 
   /* =========================
-     FETCH INVOICE STATUS
+     FETCH STATUS LOGIC
   ========================= */
   useEffect(() => {
     const fetchStatus = async () => {
@@ -116,15 +176,23 @@ export default function StudentDashboard() {
 
         setActiveInvoice(data);
 
-        if (
-          data?.status === "paid" &&
-          data.expiry_date &&
-          new Date() > new Date(data.expiry_date)
-        ) {
-          setIsExpired(true);
+        // Logic Penentuan Status (Sama seperti HomeView)
+        if (!data) {
+            setStatus('none');
+        } else if (data.status === 'unpaid') {
+            setStatus('unpaid');
+        } else if (data.status === 'waiting_confirmation' || data.status === 'waiting') {
+            setStatus('waiting');
+        } else if (data.status === 'paid') {
+            const isExp = data.expiry_date && new Date() > new Date(data.expiry_date);
+            setStatus(isExp ? 'expired' : 'active');
+        } else {
+            setStatus('none');
         }
+
       } catch (err) {
         console.log("No invoice found:", err);
+        setStatus('none');
       } finally {
         setLoading(false);
       }
@@ -133,99 +201,32 @@ export default function StudentDashboard() {
   }, [user]);
 
   /* =========================
-     LOADING STATE
+     BADGE CONFIG
   ========================= */
+  const getStatusBadge = () => {
+    switch (status) {
+        case 'active': return { color: 'primary', label: `Paket: ${activeInvoice?.package_name}` };
+        case 'expired': return { color: 'danger', label: 'Paket Berakhir' };
+        case 'unpaid': return { color: 'warning', label: 'Menunggu Pembayaran' };
+        case 'waiting': return { color: 'info', label: 'Verifikasi Admin' };
+        default: return { color: 'secondary', label: 'Belum Berlangganan' };
+    }
+  };
+
+  const badgeConfig = getStatusBadge();
+
   if (loading) {
     return (
-      <Container
-        className="d-flex justify-content-center align-items-center py-5"
-        style={{ minHeight: "60vh" }}
-      >
+      <Container className="d-flex justify-content-center align-items-center py-5" style={{ minHeight: "60vh" }}>
         <Spinner animation="border" variant="primary" />
         <span className="ms-3 text-muted">Memuat data siswa...</span>
       </Container>
     );
   }
 
-  /* =========================
-     BELUM PERNAH BELI PAKET
-  ========================= */
-  if (!activeInvoice) {
-    return (
-      <Container
-        className="py-5 text-center d-flex flex-column align-items-center justify-content-center"
-        style={{ minHeight: "70vh" }}
-      >
-        <div className="bg-primary bg-opacity-10 p-4 rounded-circle mb-4 text-primary">
-          <ShoppingBag size={64} />
-        </div>
-        <h2 className="fw-bold text-dark mb-3">
-          Selamat Datang di MAPA!
-        </h2>
-        <p className="text-muted lead mb-4" style={{ maxWidth: 600 }}>
-          Halo <strong>{user?.full_name}</strong>. Akunmu sudah aktif,
-          tapi kamu belum memiliki paket belajar.
-        </p>
-        <Button
-          variant="primary"
-          size="lg"
-          className="rounded-pill px-5 fw-bold shadow-sm"
-          onClick={() => navigate("/")}
-        >
-          Lihat Pilihan Paket
-        </Button>
-      </Container>
-    );
-  }
-
-  /* =========================
-     MENUNGGU PEMBAYARAN
-  ========================= */
-  if (activeInvoice.status !== "paid") {
-    return (
-      <Container
-        className="py-5 text-center d-flex flex-column align-items-center justify-content-center"
-        style={{ minHeight: "70vh" }}
-      >
-        <div className="bg-warning bg-opacity-10 p-4 rounded-circle mb-4 text-warning">
-          <FileText size={64} />
-        </div>
-        <h2 className="fw-bold text-dark mb-2">
-          Menunggu Pembayaran
-        </h2>
-        <p className="text-muted lead mb-4">
-          Invoice <strong>#{activeInvoice.invoice_no}</strong> sedang diproses.
-        </p>
-        <Button
-          variant="warning"
-          size="lg"
-          className="rounded-pill px-5 fw-bold text-white shadow-sm"
-          onClick={() => navigate("/invoice")}
-        >
-          Cek Status Pembayaran
-        </Button>
-      </Container>
-    );
-  }
-
-  /* =========================
-     HOME VIEW (DEFAULT)
-  ========================= */
-  if (!activeTab) {
-    return (
-      <StudentHome
-        user={user}
-        activeInvoice={activeInvoice}
-        isExpired={isExpired}
-      />
-    );
-  }
-
-  /* =========================
-     TAB VIEW
-  ========================= */
   return (
     <Container className="py-4">
+      {/* HEADER */}
       <div className="mb-4 d-flex align-items-center justify-content-between">
         <Button
           variant="link"
@@ -236,22 +237,22 @@ export default function StudentDashboard() {
           Kembali ke Menu Utama
         </Button>
 
-        {isExpired ? (
-          <span className="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">
-            Paket Berakhir
-          </span>
-        ) : (
-          <span className="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
-            Paket: {activeInvoice.package_name}
-          </span>
-        )}
+        <span className={`badge bg-${badgeConfig.color} bg-opacity-10 text-${badgeConfig.color} px-3 py-2 rounded-pill border border-${badgeConfig.color} border-opacity-25`}>
+            {badgeConfig.label}
+        </span>
       </div>
 
       <Row className="g-4">
+        {/* INFO CARD */}
         <Col xs={12}>
-          <StudentInfoCard user={user} activeInvoice={activeInvoice} />
+          <StudentInfoCard 
+            user={user} 
+            activeInvoice={activeInvoice} 
+            status={status} 
+          />
         </Col>
 
+        {/* TABS CONTENT WITH PROTECTION GUARD */}
         <Col xs={12}>
           <Card className="shadow-sm border-0 rounded-4">
             <Card.Body className="p-0">
@@ -278,11 +279,22 @@ export default function StudentDashboard() {
                       }
                     >
                       <div className="p-4 bg-light bg-opacity-25">
-                        <Component
-                          user={user}
-                          showModal={showModal}
-                          isExpired={isExpired}
-                        />
+                        {/* GUARD CLAUSE: Hanya render Component jika status ACTIVE */}
+                        {status === 'active' ? (
+                          <Component
+                            user={user}
+                            showModal={showModal}
+                            status={status}
+                            isExpired={false} // Karena sudah di-guard active
+                          />
+                        ) : (
+                          // Tampilkan Restricted View untuk status selain Active
+                          <RestrictedView 
+                            status={status} 
+                            navigate={navigate} 
+                            activeInvoice={activeInvoice} 
+                          />
+                        )}
                       </div>
                     </Tab>
                   );
@@ -293,45 +305,24 @@ export default function StudentDashboard() {
         </Col>
       </Row>
 
-      {/* =========================
-         INFO MODAL (LENGKAP)
-      ========================= */}
+      {/* MODAL NOTIFIKASI */}
       <Modal
         show={infoModal.show}
-        onHide={() =>
-          setInfoModal({ ...infoModal, show: false })
-        }
+        onHide={() => setInfoModal({ ...infoModal, show: false })}
         centered
       >
         <Modal.Body className="text-center p-4">
-          <div
-            className={`mx-auto mb-3 p-3 rounded-circle ${
-              infoModal.type === "error"
-                ? "bg-danger bg-opacity-10 text-danger"
-                : "bg-success bg-opacity-10 text-success"
-            }`}
-            style={{ width: "fit-content" }}
-          >
-            {infoModal.type === "error" ? (
-              <AlertTriangle size={32} />
-            ) : (
-              <CheckCircle size={32} />
-            )}
+          <div className={`mx-auto mb-3 p-3 rounded-circle ${
+              infoModal.type === "error" ? "bg-danger bg-opacity-10 text-danger" : "bg-success bg-opacity-10 text-success"
+            }`} style={{ width: "fit-content" }}>
+            {infoModal.type === "error" ? <AlertTriangle size={32} /> : <CheckCircle size={32} />}
           </div>
-          <h5 className="fw-bold mb-2">
-            {infoModal.title}
-          </h5>
+          <h5 className="fw-bold mb-2">{infoModal.title}</h5>
           <p className="text-muted">{infoModal.msg}</p>
           <Button
-            variant={
-              infoModal.type === "error"
-                ? "danger"
-                : "success"
-            }
+            variant={infoModal.type === "error" ? "danger" : "success"}
             className="rounded-pill px-4 mt-3"
-            onClick={() =>
-              setInfoModal({ ...infoModal, show: false })
-            }
+            onClick={() => setInfoModal({ ...infoModal, show: false })}
           >
             Tutup
           </Button>

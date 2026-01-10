@@ -30,7 +30,7 @@ export const invoiceService = {
       invoice_no: invoiceNo,
       user_id: user.id,
       email: user.email,
-      student_name: user.name,
+      student_name: user.name || user.full_name, // Handle variasi nama di auth
       student_jenjang: user.jenjang || "-",
       student_kelas: user.kelas || "-",
       student_whatsapp: user.whatsapp || "-",
@@ -127,6 +127,25 @@ export const invoiceService = {
       return data;
     } catch (error) {
       console.error("Service Confirmation Error:", error);
+      throw error;
+    }
+  },
+
+  async sendInvoiceEmail({ invoiceId, email, pdfBase64 }) {
+    try {
+      const { data, error } = await supabase.functions.invoke("send-invoice", {
+        body: {
+          invoiceId,
+          email,
+          attachment: pdfBase64, // String Base64 PDF dikirim ke backend
+          filename: `Invoice-${invoiceId}.pdf`,
+        },
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Send Email Error:", error);
       throw error;
     }
   },
