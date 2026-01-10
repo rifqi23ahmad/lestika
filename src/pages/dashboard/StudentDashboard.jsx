@@ -1,15 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import {
-  Row,
-  Col,
-  Card,
-  Tabs,
-  Tab,
-  Button,
-  Spinner,
-  Container,
-  Modal,
-} from "react-bootstrap";
+import { Spinner, Container, Button, Modal } from "react-bootstrap";
 import {
   Calendar,
   PenTool,
@@ -17,36 +7,29 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle,
-  ShoppingBag,
-  ArrowLeft,
   FileText,
+  Clock,
+  Lock,
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 
-// Import Components
-import StudentHome from "../../components/home/StudentHome";
+import DashboardLayout from "../../components/layout/DashboardLayout";
+
 import StudentInfoCard from "./student/StudentInfoCard";
 import StudentScheduleTab from "./student/StudentScheduleTab/StudentScheduleTab";
 import StudentMaterialsTab from "./student/StudentMaterialsTab";
 import StudentGradesTab from "./student/StudentGradesTab";
 import ExerciseTab from "./student/ExerciseTab";
 
-/* =========================
-   TYPE-SAFE TAB REGISTRY
-========================= */
 const TAB_REGISTRY = {
   jadwal: {
     label: "Jadwal Belajar",
     icon: Calendar,
     component: StudentScheduleTab,
   },
-  latihan: {
-    label: "Latihan Soal",
-    icon: PenTool,
-    component: ExerciseTab,
-  },
+  latihan: { label: "Latihan Soal", icon: PenTool, component: ExerciseTab },
   materi: {
     label: "Materi & Modul",
     icon: BookOpen,
@@ -59,7 +42,59 @@ const TAB_REGISTRY = {
   },
 };
 
-const DEFAULT_TAB = null;
+const DEFAULT_TAB = "jadwal";
+
+const RestrictedView = ({ status, navigate, activeInvoice }) => {
+  const getConfig = () => {
+    if (status === "unpaid")
+      return {
+        icon: FileText,
+        color: "warning",
+        title: "Belum Bayar",
+        msg: "Selesaikan pembayaran.",
+        btnText: "Bayar",
+        action: () =>
+          navigate("/invoice", { state: { invoice: activeInvoice } }),
+      };
+    if (status === "expired")
+      return {
+        icon: AlertTriangle,
+        color: "danger",
+        title: "Expired",
+        msg: "Paket habis.",
+        btnText: "Perpanjang",
+        action: () => navigate("/"),
+      };
+    return {
+      icon: Lock,
+      color: "secondary",
+      title: "Terkunci",
+      msg: "Pilih paket dulu.",
+      btnText: "Pilih Paket",
+      action: () => navigate("/"),
+    };
+  };
+  const config = getConfig();
+  const Icon = config.icon;
+  return (
+    <div className="text-center py-5">
+      <div
+        className={`bg-${config.color} bg-opacity-10 p-4 rounded-circle d-inline-block mb-3`}
+      >
+        <Icon size={48} className={`text-${config.color}`} />
+      </div>
+      <h4 className="fw-bold mb-2">{config.title}</h4>
+      <p className="text-muted mb-4">{config.msg}</p>
+      <Button
+        variant={config.color}
+        className="rounded-pill px-4"
+        onClick={config.action}
+      >
+        {config.btnText}
+      </Button>
+    </div>
+  );
+};
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -68,40 +103,22 @@ export default function StudentDashboard() {
 
   const [activeInvoice, setActiveInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isExpired, setIsExpired] = useState(false);
+  const [status, setStatus] = useState("none");
 
-  /* =========================
-     INFO MODAL STATE
-  ========================= */
   const [infoModal, setInfoModal] = useState({
     show: false,
     title: "",
     msg: "",
     type: "success",
   });
-
   const showModal = (title, msg, type = "success") =>
     setInfoModal({ show: true, title, msg, type });
 
-  /* =========================
-     ACTIVE TAB FROM URL
-  ========================= */
   const activeTab = useMemo(() => {
     const t = searchParams.get("tab");
     return TAB_REGISTRY[t] ? t : DEFAULT_TAB;
   }, [searchParams]);
 
-  const handleTabChange = (key) => {
-    setSearchParams({ tab: key });
-  };
-
-  const goToHome = () => {
-    setSearchParams({});
-  };
-
-  /* =========================
-     FETCH INVOICE STATUS
-  ========================= */
   useEffect(() => {
     const fetchStatus = async () => {
       if (!user) return;
@@ -113,18 +130,22 @@ export default function StudentDashboard() {
           .order("created_at", { ascending: false })
           .limit(1)
           .single();
-
         setActiveInvoice(data);
-
-        if (
-          data?.status === "paid" &&
-          data.expiry_date &&
-          new Date() > new Date(data.expiry_date)
-        ) {
-          setIsExpired(true);
-        }
-      } catch (err) {
-        console.log("No invoice found:", err);
+        if (!data) setStatus("none");
+        else if (data.status === "unpaid") setStatus("unpaid");
+        else if (
+          data.status === "waiting_confirmation" ||
+          data.status === "waiting"
+        )
+          setStatus("waiting");
+        else if (data.status === "paid") {
+          const isExp =
+            data.expiry_date && new Date() > new Date(data.expiry_date);
+          setStatus(isExp ? "expired" : "active");
+        } else setStatus("none");
+      } catch (e) {
+        console.log(e);
+        setStatus("none");
       } finally {
         setLoading(false);
       }
@@ -132,211 +153,83 @@ export default function StudentDashboard() {
     fetchStatus();
   }, [user]);
 
-  /* =========================
-     LOADING STATE
-  ========================= */
-  if (loading) {
+  const getStatusBadge = () => {
+    switch (status) {
+      case "active":
+        return {
+          color: "primary",
+          label: `Paket: ${activeInvoice?.package_name}`,
+        };
+      case "expired":
+        return { color: "danger", label: "Paket Berakhir" };
+      case "unpaid":
+        return { color: "warning", label: "Menunggu Pembayaran" };
+      case "waiting":
+        return { color: "info", label: "Verifikasi Admin" };
+      default:
+        return { color: "secondary", label: "Belum Berlangganan" };
+    }
+  };
+  const badgeConfig = getStatusBadge();
+  const ActiveComponent = TAB_REGISTRY[activeTab]?.component || (() => null);
+
+  if (loading)
     return (
-      <Container
-        className="d-flex justify-content-center align-items-center py-5"
-        style={{ minHeight: "60vh" }}
-      >
+      <Container className="d-flex justify-content-center align-items-center py-5">
         <Spinner animation="border" variant="primary" />
-        <span className="ms-3 text-muted">Memuat data siswa...</span>
       </Container>
     );
-  }
 
-  /* =========================
-     BELUM PERNAH BELI PAKET
-  ========================= */
-  if (!activeInvoice) {
-    return (
-      <Container
-        className="py-5 text-center d-flex flex-column align-items-center justify-content-center"
-        style={{ minHeight: "70vh" }}
-      >
-        <div className="bg-primary bg-opacity-10 p-4 rounded-circle mb-4 text-primary">
-          <ShoppingBag size={64} />
-        </div>
-        <h2 className="fw-bold text-dark mb-3">
-          Selamat Datang di MAPA!
-        </h2>
-        <p className="text-muted lead mb-4" style={{ maxWidth: 600 }}>
-          Halo <strong>{user?.full_name}</strong>. Akunmu sudah aktif,
-          tapi kamu belum memiliki paket belajar.
-        </p>
-        <Button
-          variant="primary"
-          size="lg"
-          className="rounded-pill px-5 fw-bold shadow-sm"
-          onClick={() => navigate("/")}
-        >
-          Lihat Pilihan Paket
-        </Button>
-      </Container>
-    );
-  }
-
-  /* =========================
-     MENUNGGU PEMBAYARAN
-  ========================= */
-  if (activeInvoice.status !== "paid") {
-    return (
-      <Container
-        className="py-5 text-center d-flex flex-column align-items-center justify-content-center"
-        style={{ minHeight: "70vh" }}
-      >
-        <div className="bg-warning bg-opacity-10 p-4 rounded-circle mb-4 text-warning">
-          <FileText size={64} />
-        </div>
-        <h2 className="fw-bold text-dark mb-2">
-          Menunggu Pembayaran
-        </h2>
-        <p className="text-muted lead mb-4">
-          Invoice <strong>#{activeInvoice.invoice_no}</strong> sedang diproses.
-        </p>
-        <Button
-          variant="warning"
-          size="lg"
-          className="rounded-pill px-5 fw-bold text-white shadow-sm"
-          onClick={() => navigate("/invoice")}
-        >
-          Cek Status Pembayaran
-        </Button>
-      </Container>
-    );
-  }
-
-  /* =========================
-     HOME VIEW (DEFAULT)
-  ========================= */
-  if (!activeTab) {
-    return (
-      <StudentHome
-        user={user}
-        activeInvoice={activeInvoice}
-        isExpired={isExpired}
-      />
-    );
-  }
-
-  /* =========================
-     TAB VIEW
-  ========================= */
   return (
-    <Container className="py-4">
-      <div className="mb-4 d-flex align-items-center justify-content-between">
-        <Button
-          variant="link"
-          className="text-decoration-none text-muted p-0 d-flex align-items-center fw-bold"
-          onClick={goToHome}
+    <DashboardLayout
+      title="Kembali ke Menu Utama"
+      onBack={() => navigate("/")}
+      activeTab={activeTab}
+      onTabChange={(k) => setSearchParams({ tab: k })}
+      tabsConfig={TAB_REGISTRY}
+      headerRightContent={
+        <span
+          className={`badge bg-${badgeConfig.color} bg-opacity-10 text-${badgeConfig.color} px-3 py-2 rounded-pill border border-${badgeConfig.color} border-opacity-25`}
         >
-          <ArrowLeft size={18} className="me-2" />
-          Kembali ke Menu Utama
-        </Button>
+          {badgeConfig.label}
+        </span>
+      }
+      topContent={
+        <StudentInfoCard
+          user={user}
+          activeInvoice={activeInvoice}
+          status={status}
+        />
+      }
+    >
+      {status === "active" ? (
+        <ActiveComponent
+          user={user}
+          showModal={showModal}
+          status={status}
+          isExpired={false}
+        />
+      ) : (
+        <RestrictedView
+          status={status}
+          navigate={navigate}
+          activeInvoice={activeInvoice}
+        />
+      )}
 
-        {isExpired ? (
-          <span className="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">
-            Paket Berakhir
-          </span>
-        ) : (
-          <span className="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
-            Paket: {activeInvoice.package_name}
-          </span>
-        )}
-      </div>
-
-      <Row className="g-4">
-        <Col xs={12}>
-          <StudentInfoCard user={user} activeInvoice={activeInvoice} />
-        </Col>
-
-        <Col xs={12}>
-          <Card className="shadow-sm border-0 rounded-4">
-            <Card.Body className="p-0">
-              <Tabs
-                activeKey={activeTab}
-                onSelect={handleTabChange}
-                className="border-bottom px-3 pt-3"
-                fill
-              >
-                {Object.entries(TAB_REGISTRY).map(([key, cfg]) => {
-                  const Icon = cfg.icon;
-                  const Component = cfg.component;
-                  return (
-                    <Tab
-                      key={key}
-                      eventKey={key}
-                      title={
-                        <div className="d-flex align-items-center justify-content-center py-2 gap-2">
-                          <Icon size={18} />
-                          <span className="fw-semibold">
-                            {cfg.label}
-                          </span>
-                        </div>
-                      }
-                    >
-                      <div className="p-4 bg-light bg-opacity-25">
-                        <Component
-                          user={user}
-                          showModal={showModal}
-                          isExpired={isExpired}
-                        />
-                      </div>
-                    </Tab>
-                  );
-                })}
-              </Tabs>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* =========================
-         INFO MODAL (LENGKAP)
-      ========================= */}
       <Modal
         show={infoModal.show}
-        onHide={() =>
-          setInfoModal({ ...infoModal, show: false })
-        }
+        onHide={() => setInfoModal({ ...infoModal, show: false })}
         centered
       >
         <Modal.Body className="text-center p-4">
-          <div
-            className={`mx-auto mb-3 p-3 rounded-circle ${
-              infoModal.type === "error"
-                ? "bg-danger bg-opacity-10 text-danger"
-                : "bg-success bg-opacity-10 text-success"
-            }`}
-            style={{ width: "fit-content" }}
-          >
-            {infoModal.type === "error" ? (
-              <AlertTriangle size={32} />
-            ) : (
-              <CheckCircle size={32} />
-            )}
-          </div>
-          <h5 className="fw-bold mb-2">
-            {infoModal.title}
-          </h5>
-          <p className="text-muted">{infoModal.msg}</p>
-          <Button
-            variant={
-              infoModal.type === "error"
-                ? "danger"
-                : "success"
-            }
-            className="rounded-pill px-4 mt-3"
-            onClick={() =>
-              setInfoModal({ ...infoModal, show: false })
-            }
-          >
+          <h5 className="fw-bold">{infoModal.title}</h5>
+          <p>{infoModal.msg}</p>
+          <Button onClick={() => setInfoModal({ ...infoModal, show: false })}>
             Tutup
           </Button>
         </Modal.Body>
       </Modal>
-    </Container>
+    </DashboardLayout>
   );
 }

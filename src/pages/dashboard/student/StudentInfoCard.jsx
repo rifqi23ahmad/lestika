@@ -9,12 +9,13 @@ import {
   Form,
   Spinner,
 } from "react-bootstrap";
-import { Clock, Award, User, Star, Edit2, Camera } from "lucide-react";
+import { Clock, Award, User, Star, Edit2, Camera, Calendar } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 
 export default function StudentInfoCard({
   user,
   activeInvoice,
+  status = 'none', // 'none', 'active', 'expired', 'unpaid', 'waiting'
   onReviewClick,
 }) {
   const { updateUserProfileData } = useAuth();
@@ -36,7 +37,7 @@ export default function StudentInfoCard({
     if (!user || !showEditModal) return;
 
     setFormData({
-      fullName: user.name || "",
+      fullName: user.name || user.full_name || "", // Ambil full_name juga jika name kosong
       jenjang: user.jenjang || "",
       kelas: user.kelas || "",
       whatsapp: user.whatsapp || "",
@@ -64,7 +65,7 @@ export default function StudentInfoCard({
       : "-";
 
   const displayName =
-    user?.name || user?.full_name || user?.email?.split("@")[0] || "Siswa";
+    user?.full_name || user?.name || user?.email?.split("@")[0] || "Siswa";
 
   const displayEmail = user?.email || "-";
 
@@ -104,6 +105,31 @@ export default function StudentInfoCard({
     }
   };
 
+  // --- LOGIC TAMPILAN STATUS ---
+  const getStatusUI = () => {
+    switch (status) {
+        case 'active':
+            return { badgeColor: 'success', badgeText: 'Aktif', textColor: 'text-success' };
+        case 'expired':
+            return { badgeColor: 'danger', badgeText: 'Expired', textColor: 'text-danger' };
+        case 'unpaid':
+            return { badgeColor: 'warning', badgeText: 'Belum Bayar', textColor: 'text-warning' };
+        case 'waiting':
+            return { badgeColor: 'info', badgeText: 'Verifikasi', textColor: 'text-info' };
+        default:
+            return { badgeColor: 'secondary', badgeText: 'Non-Aktif', textColor: 'text-muted' };
+    }
+  };
+
+  const statusUI = getStatusUI();
+  const packageName = activeInvoice?.package_name || "Belum Berlangganan";
+  
+  // Tentukan label tanggal (Expired Date atau Order Date)
+  const dateLabel = (status === 'active' || status === 'expired') ? "Berlaku s.d:" : "Tanggal Order:";
+  const dateValue = (status === 'active' || status === 'expired') 
+        ? activeInvoice?.expiry_date 
+        : activeInvoice?.created_at;
+
   return (
     <>
       <Card
@@ -112,6 +138,7 @@ export default function StudentInfoCard({
       >
         <div className="bg-primary bg-gradient p-4 text-white">
           <Row className="align-items-center gy-4">
+            {/* KOLOM KIRI: Identitas Siswa */}
             <Col
               md={7}
               className="d-flex gap-3 border-end border-light border-opacity-25"
@@ -163,14 +190,15 @@ export default function StudentInfoCard({
                     Siswa
                   </span>
                   <span>{displayEmail}</span>
-                  {user?.jenjang && <span>{user.jenjang}</span>}
+                  {user?.jenjang && <span>| {user.jenjang}</span>}
                   {user?.kelas && <span>- {user.kelas}</span>}
                 </div>
               </div>
             </Col>
 
+            {/* KOLOM KANAN: Status Paket */}
             <Col md={5}>
-              <div className="bg-white bg-opacity-10 rounded-3 p-3 position-relative">
+              <div className="bg-white bg-opacity-10 rounded-3 p-3 position-relative h-100 d-flex flex-column justify-content-center">
                 <Award
                   size={80}
                   className="position-absolute text-white opacity-10"
@@ -182,24 +210,32 @@ export default function StudentInfoCard({
                     <span className="small opacity-75">
                       Paket Belajar Saat Ini:
                     </span>
-                    <Badge bg="light" text="primary">
-                      Aktif
+                    <Badge bg="light" text={statusUI.badgeColor} className="fw-bold">
+                      {statusUI.badgeText}
                     </Badge>
                   </div>
 
                   <h4 className="fw-bold mb-2">
-                    {activeInvoice?.package_name || "Belum Berlangganan"}
+                    {packageName}
                   </h4>
 
-                  <div className="d-flex gap-2 mb-3 small opacity-75">
-                    <Clock size={16} />
-                    <span>
-                      Berlaku s.d:{" "}
-                      <strong>{formatDate(activeInvoice?.expiry_date)}</strong>
-                    </span>
-                  </div>
+                  {/* Tampilkan tanggal hanya jika ada invoice */}
+                  {activeInvoice ? (
+                      <div className="d-flex gap-2 mb-3 small opacity-75">
+                        {status === 'active' || status === 'expired' ? <Clock size={16} /> : <Calendar size={16} />}
+                        <span>
+                          {dateLabel} <strong>{formatDate(dateValue)}</strong>
+                        </span>
+                      </div>
+                  ) : (
+                      <div className="d-flex gap-2 mb-3 small opacity-75">
+                          <User size={16} />
+                          <span>Status: <strong>Pengunjung Baru</strong></span>
+                      </div>
+                  )}
 
-                  {activeInvoice && (
+                  {/* Tombol Ulasan hanya muncul jika Active */}
+                  {status === 'active' && activeInvoice && (
                     <Button
                       variant="light"
                       size="sm"
@@ -216,6 +252,7 @@ export default function StudentInfoCard({
         </div>
       </Card>
 
+      {/* Modal Edit Profile (Tetap sama) */}
       <Modal
         show={showEditModal}
         onHide={() => setShowEditModal(false)}
