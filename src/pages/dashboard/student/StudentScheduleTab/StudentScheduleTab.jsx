@@ -4,9 +4,10 @@ import { useScheduleData } from "./useScheduleData";
 import WeeklyBoard from "./WeeklyBoard";
 import MobileSchedule from "./MobileSchedule";
 import ConfirmModal from "./ConfirmModal";
+import { useIsMobile } from "./useIsMobile";
 
 export default function StudentScheduleTab({ user, showModal }) {
-  const isMobile = window.innerWidth < 768;
+  const isMobile = useIsMobile();
   const schedule = useScheduleData({ user, showModal });
 
   if (schedule.loading) {

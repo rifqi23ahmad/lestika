@@ -1,124 +1,253 @@
-import React, { useState, useEffect } from "react";
-import { Card, Table, Badge, Row, Col, Spinner, Alert } from "react-bootstrap";
-import { TrendingUp, Award, Calendar, MessageCircle } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import {
+  Card,
+  Table,
+  Badge,
+  Row,
+  Col,
+  Spinner,
+  Alert,
+} from "react-bootstrap";
+import {
+  TrendingUp,
+  Award,
+  Calendar,
+  BookOpen,
+  GraduationCap,
+} from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
 export default function StudentGradesTab({ user }) {
-  const [grades, setGrades] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exerciseScores, setExerciseScores] = useState([]);
+  const [teacherGrades, setTeacherGrades] = useState([]);
 
   useEffect(() => {
-    if (user) fetchGrades();
+    if (user?.id) fetchAll();
   }, [user]);
 
-  const fetchGrades = async () => {
+  const fetchAll = async () => {
+    setLoading(true);
     try {
-      // Mengambil nilai milik user yang sedang login
-      const { data, error } = await supabase
-        .from("grades")
+      /* =========================
+         NILAI LATIHAN
+      ========================= */
+      const { data: attempts, error: attemptError } = await supabase
+        .from("student_attempts")
         .select(`
-            *,
-            teacher:profiles!teacher_id(full_name)
+          id,
+          score,
+          created_at,
+          package:question_packages (
+            title,
+            subject
+          )
         `)
         .eq("student_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setGrades(data || []);
-    } catch (err) {
-      console.error("Fetch grades error:", err);
+      if (attemptError) throw attemptError;
+      setExerciseScores(attempts || []);
+
+      /* =========================
+         NILAI GURU
+      ========================= */
+      const { data: grades, error: gradeError } = await supabase
+        .from("grades")
+        .select(`
+          *,
+          teacher:profiles!teacher_id(full_name)
+        `)
+        .eq("student_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (gradeError) throw gradeError;
+      setTeacherGrades(grades || []);
+    } catch {
+      setExerciseScores([]);
+      setTeacherGrades([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const calculateAverage = () => {
-    if (grades.length === 0) return 0;
-    const total = grades.reduce((acc, curr) => acc + (parseFloat(curr.score) || 0), 0);
-    return (total / grades.length).toFixed(1);
+  /* =========================
+     FORMATTER (DIKUNCI)
+  ========================= */
+  const formatScore = (value) => {
+    if (value === null || value === undefined) return "-";
+    return Math.round(Number(value));
   };
 
-  if (loading) return (
-    <div className="text-center py-5">
-      <Spinner animation="border" variant="primary" />
-    </div>
-  );
+  const calcAverage = (list) => {
+    if (!list.length) return 0;
+    const total = list.reduce(
+      (acc, curr) => acc + (Number(curr.score) || 0),
+      0
+    );
+    return Math.round(total / list.length);
+  };
 
-  const average = calculateAverage();
+  const avgExercise = calcAverage(exerciseScores);
+  const avgTeacher = calcAverage(teacherGrades);
+
+  if (loading) {
+    return (
+      <div className="text-center py-5">
+        <Spinner animation="border" />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
-      {/* Ringkasan Nilai */}
+      {/* ===============================
+          SECTION: NILAI LATIHAN
+      =============================== */}
       <Row className="mb-4">
-         <Col md={5} lg={4}>
-            <Card className="border-0 shadow-sm rounded-4 bg-primary text-white overflow-hidden h-100">
-               <Card.Body className="position-relative p-4 d-flex flex-column justify-content-center">
-                  <div className="position-absolute top-0 end-0 p-3 opacity-25">
-                     <Award size={80} />
-                  </div>
-                  <h6 className="text-white text-opacity-75 mb-1">Rata-rata Nilai</h6>
-                  <h1 className="display-4 fw-bold mb-0">{average}</h1>
-                  <div className="mt-2">
-                    <Badge bg="white" className="text-primary px-3 py-1 rounded-pill">
-                        {average >= 90 ? "Luar Biasa!" : average >= 80 ? "Sangat Baik" : average >= 70 ? "Baik" : "Tingkatkan Lagi"}
-                    </Badge>
-                  </div>
-               </Card.Body>
-            </Card>
-         </Col>
+        <Col md={5} lg={4}>
+          <Card className="border-0 shadow-sm rounded-4 bg-success text-white h-100 overflow-hidden">
+            <Card.Body className="position-relative p-4">
+              <div className="position-absolute top-0 end-0 p-3 opacity-25">
+                <Award size={72} />
+              </div>
+              <h6 className="text-white text-opacity-75">
+                Rata-rata Nilai Latihan
+              </h6>
+              <h1 className="fw-bold display-4 mb-0">
+                {avgExercise}
+              </h1>
+            </Card.Body>
+          </Card>
+        </Col>
       </Row>
 
-      <div className="d-flex align-items-center mb-3">
-        <TrendingUp size={20} className="text-primary me-2" />
-        <h5 className="fw-bold mb-0">Riwayat Penilaian</h5>
-      </div>
+      <h5 className="fw-bold mb-3 d-flex align-items-center">
+        <BookOpen size={20} className="me-2 text-success" />
+        Riwayat Latihan
+      </h5>
 
-      <Card className="border-0 shadow-sm rounded-4 overflow-hidden bg-white">
-        {grades.length === 0 ? (
-            <div className="p-5 text-center">
-                <Alert variant="light" className="d-inline-block border rounded-pill px-4">Belum ada data nilai yang masuk.</Alert>
-            </div>
+      <Card className="border-0 shadow-sm rounded-4 mb-5">
+        {exerciseScores.length === 0 ? (
+          <Alert variant="light" className="m-4">
+            Belum ada nilai latihan.
+          </Alert>
         ) : (
-            <div className="table-responsive">
-                <Table hover className="mb-0 align-middle">
-                <thead className="bg-light">
-                    <tr>
-                    <th className="py-3 ps-4 border-0 text-secondary small fw-bold text-uppercase">Mata Pelajaran</th>
-                    <th className="py-3 border-0 text-secondary small fw-bold text-uppercase">Guru</th>
-                    <th className="py-3 border-0 text-secondary small fw-bold text-uppercase">Tanggal</th>
-                    <th className="py-3 border-0 text-secondary small fw-bold text-uppercase">Catatan</th>
-                    <th className="py-3 pe-4 border-0 text-end text-secondary small fw-bold text-uppercase">Nilai</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {grades.map((g) => (
-                    <tr key={g.id}>
-                        <td className="ps-4 fw-bold text-dark">{g.subject}</td>
-                        <td className="text-muted small">{g.teacher?.full_name}</td>
-                        <td className="text-muted small">
-                            <div className="d-flex align-items-center">
-                                <Calendar size={14} className="me-2 text-primary"/> 
-                                {new Date(g.created_at).toLocaleDateString("id-ID")}
-                            </div>
-                        </td>
-                        <td>
-                            {g.feedback ? (
-                                <div className="d-flex align-items-center text-muted small" title={g.feedback}>
-                                    <MessageCircle size={14} className="me-1 text-info"/>
-                                    <span className="d-inline-block text-truncate" style={{maxWidth: '200px'}}>{g.feedback}</span>
-                                </div>
-                            ) : <span className="text-muted small">-</span>}
-                        </td>
-                        <td className="pe-4 text-end">
-                        <span className={`fs-5 fw-bold ${g.score >= 80 ? 'text-success' : g.score >= 60 ? 'text-warning' : 'text-danger'}`}>
-                            {g.score}
-                        </span>
-                        </td>
-                    </tr>
-                    ))}
-                </tbody>
-                </Table>
-            </div>
+          <div className="table-responsive">
+            <Table hover className="mb-0 align-middle">
+              <thead className="bg-light">
+                <tr>
+                  <th className="ps-4">Paket</th>
+                  <th>Mata Pelajaran</th>
+                  <th>Tanggal</th>
+                  <th className="text-end pe-4">Skor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exerciseScores.map((e) => (
+                  <tr key={e.id}>
+                    <td className="ps-4 fw-bold">
+                      {e.package?.title || "-"}
+                    </td>
+                    <td>{e.package?.subject || "-"}</td>
+                    <td>
+                      <Calendar size={14} className="me-1 text-success" />
+                      {new Date(e.created_at).toLocaleDateString("id-ID")}
+                    </td>
+                    <td className="text-end pe-4">
+                      <span
+                        className={`fw-bold ${
+                          formatScore(e.score) >= 80
+                            ? "text-success"
+                            : formatScore(e.score) >= 60
+                            ? "text-warning"
+                            : "text-danger"
+                        }`}
+                      >
+                        {formatScore(e.score)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
+        )}
+      </Card>
+
+      {/* ===============================
+          SECTION: NILAI GURU
+      =============================== */}
+      <Row className="mb-4">
+        <Col md={5} lg={4}>
+          <Card className="border-0 shadow-sm rounded-4 bg-primary text-white h-100 overflow-hidden">
+            <Card.Body className="position-relative p-4">
+              <div className="position-absolute top-0 end-0 p-3 opacity-25">
+                <GraduationCap size={72} />
+              </div>
+              <h6 className="text-white text-opacity-75">
+                Rata-rata Nilai Guru
+              </h6>
+              <h1 className="fw-bold display-4 mb-0">
+                {avgTeacher}
+              </h1>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      <h5 className="fw-bold mb-3 d-flex align-items-center">
+        <TrendingUp size={20} className="me-2 text-primary" />
+        Riwayat Penilaian Guru
+      </h5>
+
+      <Card className="border-0 shadow-sm rounded-4">
+        {teacherGrades.length === 0 ? (
+          <Alert variant="light" className="m-4">
+            Belum ada penilaian dari guru.
+          </Alert>
+        ) : (
+          <div className="table-responsive">
+            <Table hover className="mb-0 align-middle">
+              <thead className="bg-light">
+                <tr>
+                  <th className="ps-4">Mata Pelajaran</th>
+                  <th>Guru</th>
+                  <th>Tanggal</th>
+                  <th className="text-end pe-4">Nilai</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teacherGrades.map((g) => (
+                  <tr key={g.id}>
+                    <td className="ps-4 fw-bold">
+                      {g.subject}
+                    </td>
+                    <td>
+                      {g.teacher?.full_name || "-"}
+                    </td>
+                    <td>
+                      <Calendar size={14} className="me-1 text-primary" />
+                      {new Date(g.created_at).toLocaleDateString("id-ID")}
+                    </td>
+                    <td className="text-end pe-4">
+                      <span
+                        className={`fw-bold ${
+                          formatScore(g.score) >= 80
+                            ? "text-success"
+                            : formatScore(g.score) >= 60
+                            ? "text-warning"
+                            : "text-danger"
+                        }`}
+                      >
+                        {formatScore(g.score)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
         )}
       </Card>
     </div>

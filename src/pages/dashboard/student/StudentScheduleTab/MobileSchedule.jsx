@@ -40,6 +40,7 @@ export default function MobileSchedule({
       {/* DAY SELECTOR (CUSTOM DROPDOWN) */}
       <Dropdown>
         <Dropdown.Toggle
+          bsPrefix="dropdown-toggle-no-caret"
           variant="light"
           className="w-100 d-flex justify-content-between align-items-center rounded-pill shadow-sm border fw-semibold px-4 py-2"
         >
@@ -75,9 +76,7 @@ export default function MobileSchedule({
       {/* SLOT LIST */}
       {slots.length === 0 ? (
         <Card className="border-0 shadow-sm text-center p-4">
-          <small className="text-muted">
-            Tidak ada jadwal di hari ini.
-          </small>
+          <small className="text-muted">Tidak ada jadwal di hari ini.</small>
         </Card>
       ) : (
         slots.map((slot) => {
@@ -93,13 +92,10 @@ export default function MobileSchedule({
             >
               <Card.Body>
                 <div className="fw-bold mb-1">
-                  {formatTime(slot.start_time)} –{" "}
-                  {formatTime(slot.end_time)}
+                  {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
                 </div>
 
-                <div className="text-muted small mb-2">
-                  {slot.subject}
-                </div>
+                <div className="text-muted small mb-2">{slot.subject}</div>
 
                 {isMine ? (
                   <Badge bg="success" className="px-3 py-2">
@@ -114,9 +110,7 @@ export default function MobileSchedule({
                   <Button
                     variant="primary"
                     className="w-100 rounded-pill"
-                    onClick={() =>
-                      setConfirmModal({ show: true, slot })
-                    }
+                    onClick={() => setConfirmModal({ show: true, slot })}
                   >
                     Ambil Jadwal
                   </Button>
