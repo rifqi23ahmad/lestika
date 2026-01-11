@@ -9,6 +9,7 @@ import {
   Modal,
   Form,
   ProgressBar,
+  Nav // Tambahkan Nav untuk Tab pill
 } from "react-bootstrap";
 import {
   Trash2,
@@ -19,6 +20,8 @@ import {
   Edit,
   Upload,
   Save,
+  Youtube, // Tambah Icon Youtube
+  Link as LinkIcon
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../context/AuthContext";
@@ -32,6 +35,9 @@ export default function MaterialTab() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  
+  // State untuk tipe upload: 'file' | 'youtube'
+  const [uploadType, setUploadType] = useState('file');
 
   const [formData, setFormData] = useState({
     id: null,
@@ -41,10 +47,11 @@ export default function MaterialTab() {
     kelas: "",
     subject: "",
     file: null,
+    youtubeUrl: "" // Field baru untuk URL
   });
 
   const [showViewModal, setShowViewModal] = useState(false);
-  const [previewData, setPreviewData] = useState({ url: "", title: "" });
+  const [previewData, setPreviewData] = useState({ url: "", title: "", type: "file" });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -87,8 +94,14 @@ export default function MaterialTab() {
     return [];
   };
 
+  // Helper cek apakah URL adalah YouTube
+  const isYouTubeUrl = (url) => {
+    return url && (url.includes("youtube.com") || url.includes("youtu.be"));
+  };
+
   const handleShowUpload = () => {
     setIsEditing(false);
+    setUploadType('file'); // Default file
     setFormData({
       id: null,
       title: "",
@@ -97,6 +110,7 @@ export default function MaterialTab() {
       kelas: "",
       subject: "",
       file: null,
+      youtubeUrl: ""
     });
     setShowFormModal(true);
   };
@@ -104,6 +118,10 @@ export default function MaterialTab() {
   const handleShowEdit = (item) => {
     setIsEditing(true);
     const detectedJenjang = item.jenjang || getJenjangFromKelas(item.kelas);
+    
+    // Deteksi tipe konten
+    const isYoutube = isYouTubeUrl(item.file_url);
+    setUploadType(isYoutube ? 'youtube' : 'file');
 
     setFormData({
       id: item.id,
@@ -113,6 +131,7 @@ export default function MaterialTab() {
       kelas: item.kelas || "",
       subject: item.subject || "",
       file: null,
+      youtubeUrl: isYoutube ? item.file_url : ""
     });
     setShowFormModal(true);
   };
@@ -127,25 +146,26 @@ export default function MaterialTab() {
     setError(null);
 
     try {
-      if (
-        !formData.title ||
-        !formData.jenjang ||
-        !formData.kelas ||
-        !formData.subject
-      ) {
+      if (!formData.title || !formData.jenjang || !formData.kelas || !formData.subject) {
         throw new Error("Mohon lengkapi Judul, Jenjang, Kelas, dan Mapel.");
       }
-      if (!isEditing && !formData.file) {
-        throw new Error("File materi wajib diupload.");
+
+      // Validasi File / Link
+      if (!isEditing) {
+          if (uploadType === 'file' && !formData.file) throw new Error("File materi wajib diupload.");
+          if (uploadType === 'youtube' && !formData.youtubeUrl) throw new Error("Link YouTube wajib diisi.");
       }
 
-      let fileUrl = null;
+      let finalFileUrl = null;
 
-      if (formData.file) {
+      // 1. Jika tipe YouTube, pakai URL text langsung
+      if (uploadType === 'youtube') {
+         finalFileUrl = formData.youtubeUrl;
+      } 
+      // 2. Jika tipe File dan ada file baru yg diupload
+      else if (uploadType === 'file' && formData.file) {
         const fileExt = formData.file.name.split(".").pop();
-        const fileName = `${Date.now()}_${Math.random()
-          .toString(36)
-          .substring(7)}.${fileExt}`;
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `uploads/${user.id}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -158,27 +178,25 @@ export default function MaterialTab() {
           .from("materials")
           .getPublicUrl(filePath);
 
-        fileUrl = publicUrlData.publicUrl;
+        finalFileUrl = publicUrlData.publicUrl;
       }
 
       const payload = {
         title: formData.title,
         description: formData.description,
-        jenjang: formData.jenjang, // <-- PENTING: Sekarang Jenjang ikut disimpan
+        jenjang: formData.jenjang, 
         kelas: formData.kelas,
         subject: formData.subject,
         updated_at: new Date(),
       };
 
-      if (fileUrl) {
-        payload.file_url = fileUrl;
+      // Hanya update file_url jika ada perubahan (file baru atau link baru)
+      if (finalFileUrl) {
+        payload.file_url = finalFileUrl;
       }
 
       if (isEditing) {
-        const { error } = await supabase
-          .from("materials")
-          .update(payload)
-          .eq("id", formData.id);
+        const { error } = await supabase.from("materials").update(payload).eq("id", formData.id);
         if (error) throw error;
       } else {
         payload.teacher_id = user.id;
@@ -196,8 +214,34 @@ export default function MaterialTab() {
     }
   };
 
+  // Helper convert Youtube Link to Embed
+  const getEmbedUrl = (url) => {
+    if (!url) return "";
+    let videoId = "";
+    
+    // Handle youtu.be/ID
+    if (url.includes("youtu.be")) {
+        videoId = url.split("/").pop().split("?")[0];
+    } 
+    // Handle youtube.com/watch?v=ID
+    else if (url.includes("v=")) {
+        videoId = url.split("v=")[1].split("&")[0];
+    }
+    // Handle embed link already
+    else if (url.includes("embed")) {
+        return url;
+    }
+
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+  };
+
   const handleView = (item) => {
-    setPreviewData({ url: item.file_url, title: item.title });
+    const isYt = isYouTubeUrl(item.file_url);
+    setPreviewData({ 
+        url: isYt ? getEmbedUrl(item.file_url) : item.file_url, 
+        title: item.title,
+        type: isYt ? 'youtube' : 'file'
+    });
     setShowViewModal(true);
   };
 
@@ -205,25 +249,20 @@ export default function MaterialTab() {
     if (!selectedMaterial) return;
     setDeleteLoading(true);
     try {
-      if (selectedMaterial.file_url) {
+      // Hapus file fisik HANYA jika bukan link youtube
+      if (selectedMaterial.file_url && !isYouTubeUrl(selectedMaterial.file_url)) {
         try {
           const urlParts = selectedMaterial.file_url.split("/materials/");
           if (urlParts.length > 1) {
-            const storagePath = urlParts[1]; // uploads/uid/file.ext
+            const storagePath = urlParts[1]; 
             await supabase.storage.from("materials").remove([storagePath]);
           }
         } catch (storageErr) {
-          console.warn(
-            "Gagal menghapus file fisik, lanjut hapus data DB.",
-            storageErr
-          );
+          console.warn("Gagal menghapus file fisik, lanjut hapus data DB.", storageErr);
         }
       }
 
-      const { error } = await supabase
-        .from("materials")
-        .delete()
-        .eq("id", selectedMaterial.id);
+      const { error } = await supabase.from("materials").delete().eq("id", selectedMaterial.id);
       if (error) throw error;
 
       setMaterials(materials.filter((m) => m.id !== selectedMaterial.id));
@@ -257,7 +296,7 @@ export default function MaterialTab() {
           variant="primary"
           className="shadow-sm d-flex align-items-center gap-2"
         >
-          <Plus size={18} /> Upload Materi
+          <Plus size={18} /> Tambah Materi
         </Button>
       </div>
 
@@ -299,12 +338,14 @@ export default function MaterialTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {materials.map((item) => (
+                  {materials.map((item) => {
+                    const isYt = isYouTubeUrl(item.file_url);
+                    return (
                     <tr key={item.id} className="border-bottom-0">
                       <td className="ps-4">
                         <div className="d-flex align-items-center">
-                          <div className="bg-primary-subtle text-primary p-2 rounded me-3">
-                            <FileText size={20} />
+                          <div className={`p-2 rounded me-3 ${isYt ? 'bg-danger-subtle text-danger' : 'bg-primary-subtle text-primary'}`}>
+                            {isYt ? <Youtube size={20} /> : <FileText size={20} />}
                           </div>
                           <div>
                             <div className="fw-bold text-dark">
@@ -364,7 +405,7 @@ export default function MaterialTab() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </Table>
             </div>
@@ -381,11 +422,36 @@ export default function MaterialTab() {
       >
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold">
-            {isEditing ? "Edit Materi" : "Upload Materi Baru"}
+            {isEditing ? "Edit Materi" : "Tambah Materi Baru"}
           </Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body className="p-4">
+            
+            {/* --- PILIHAN TIPE UPLOAD --- */}
+            <div className="mb-4">
+                <Nav variant="pills" className="bg-light p-1 rounded-3" activeKey={uploadType}>
+                    <Nav.Item className="w-50">
+                        <Nav.Link 
+                            eventKey="file" 
+                            onClick={() => setUploadType('file')}
+                            className="text-center fw-semibold rounded-3"
+                        >
+                            <Upload size={18} className="me-2 mb-1"/> Upload File
+                        </Nav.Link>
+                    </Nav.Item>
+                    <Nav.Item className="w-50">
+                        <Nav.Link 
+                            eventKey="youtube" 
+                            onClick={() => setUploadType('youtube')}
+                            className="text-center fw-semibold rounded-3"
+                        >
+                            <Youtube size={18} className="me-2 mb-1"/> Video YouTube
+                        </Nav.Link>
+                    </Nav.Item>
+                </Nav>
+            </div>
+
             <div className="row g-3">
               <div className="col-12">
                 <Form.Group>
@@ -478,61 +544,82 @@ export default function MaterialTab() {
                 </Form.Group>
               </div>
 
+              {/* --- KONDISIONAL INPUT BERDASARKAN TIPE --- */}
               <div className="col-12">
                 <Form.Group>
-                  <Form.Label className="fw-medium">File Materi</Form.Label>
-                  <div
-                    className={`border rounded-3 p-3 text-center ${
-                      formData.file
-                        ? "bg-primary-subtle border-primary"
-                        : "bg-light"
-                    }`}
-                  >
-                    <div className="d-flex flex-column align-items-center justify-content-center cursor-pointer position-relative">
-                      {!formData.file ? (
-                        <>
-                          <Upload size={24} className="text-muted mb-2" />
-                          <span className="small text-muted">
-                            Klik untuk upload (PDF, DOCX, JPG)
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <FileText size={24} className="text-primary mb-2" />
-                          <span className="small fw-bold text-primary">
-                            {formData.file.name}
-                          </span>
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="text-danger p-0 mt-1 text-decoration-none"
-                            onClick={() =>
-                              setFormData({ ...formData, file: null })
-                            }
-                          >
-                            Ganti File
-                          </Button>
-                        </>
-                      )}
-                      <Form.Control
-                        type="file"
-                        className="position-absolute opacity-0 w-100 h-100"
-                        style={{ cursor: "pointer" }}
-                        onChange={(e) => {
-                          if (e.target.files[0])
-                            setFormData({
-                              ...formData,
-                              file: e.target.files[0],
-                            });
-                        }}
-                      />
-                    </div>
-                  </div>
-                  {isEditing && !formData.file && (
-                    <Form.Text className="text-muted">
-                      *Kosongkan jika tidak ingin mengubah file.
-                    </Form.Text>
+                  <Form.Label className="fw-medium">
+                    {uploadType === 'file' ? "File Materi" : "Link Video YouTube"}
+                  </Form.Label>
+                  
+                  {uploadType === 'file' ? (
+                      // INPUT FILE
+                      <>
+                        <div
+                            className={`border rounded-3 p-3 text-center ${
+                            formData.file
+                                ? "bg-primary-subtle border-primary"
+                                : "bg-light"
+                            }`}
+                        >
+                            <div className="d-flex flex-column align-items-center justify-content-center cursor-pointer position-relative">
+                            {!formData.file ? (
+                                <>
+                                <Upload size={24} className="text-muted mb-2" />
+                                <span className="small text-muted">
+                                    Klik untuk upload (PDF, DOCX, JPG)
+                                </span>
+                                </>
+                            ) : (
+                                <>
+                                <FileText size={24} className="text-primary mb-2" />
+                                <span className="small fw-bold text-primary">
+                                    {formData.file.name}
+                                </span>
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    className="text-danger p-0 mt-1 text-decoration-none"
+                                    onClick={() =>
+                                    setFormData({ ...formData, file: null })
+                                    }
+                                >
+                                    Ganti File
+                                </Button>
+                                </>
+                            )}
+                            <Form.Control
+                                type="file"
+                                className="position-absolute opacity-0 w-100 h-100"
+                                style={{ cursor: "pointer" }}
+                                onChange={(e) => {
+                                if (e.target.files[0])
+                                    setFormData({
+                                    ...formData,
+                                    file: e.target.files[0],
+                                    });
+                                }}
+                            />
+                            </div>
+                        </div>
+                        {isEditing && !formData.file && (
+                            <Form.Text className="text-muted">
+                            *Kosongkan jika tidak ingin mengubah file.
+                            </Form.Text>
+                        )}
+                      </>
+                  ) : (
+                      // INPUT YOUTUBE LINK
+                      <div className="input-group">
+                         <span className="input-group-text bg-light"><LinkIcon size={18}/></span>
+                         <Form.Control 
+                            type="url"
+                            placeholder="Contoh: https://www.youtube.com/watch?v=..."
+                            value={formData.youtubeUrl}
+                            onChange={(e) => setFormData({...formData, youtubeUrl: e.target.value})}
+                         />
+                      </div>
                   )}
+
                 </Form.Group>
               </div>
             </div>
@@ -567,6 +654,7 @@ export default function MaterialTab() {
         </Form>
       </Modal>
 
+      {/* --- PREVIEW MODAL --- */}
       <Modal
         show={showViewModal}
         onHide={() => setShowViewModal(false)}
@@ -578,19 +666,33 @@ export default function MaterialTab() {
             {previewData.title}
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body className="p-0 bg-light" style={{ height: "80vh" }}>
-          {previewData.url ? (
-            <iframe
-              src={previewData.url}
-              width="100%"
-              height="100%"
-              title="Preview"
-              className="border-0"
-            />
+        <Modal.Body className="p-0 bg-dark" style={{ height: "80vh" }}>
+          {previewData.type === 'youtube' ? (
+              // RENDER YOUTUBE EMBED
+              <iframe
+                src={previewData.url}
+                title="YouTube Video Player"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                width="100%"
+                height="100%"
+                className="border-0"
+              />
           ) : (
-            <div className="h-100 d-flex align-items-center justify-content-center">
-              <p className="text-muted">File rusak.</p>
-            </div>
+              // RENDER FILE (PDF/IMAGE)
+              previewData.url ? (
+                <iframe
+                src={previewData.url}
+                width="100%"
+                height="100%"
+                title="Preview"
+                className="border-0 bg-light"
+                />
+              ) : (
+                <div className="h-100 d-flex align-items-center justify-content-center">
+                    <p className="text-muted">File rusak.</p>
+                </div>
+              )
           )}
         </Modal.Body>
       </Modal>

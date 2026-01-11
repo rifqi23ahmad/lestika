@@ -6,10 +6,9 @@ import {
   BookOpen,
   TrendingUp,
   AlertTriangle,
-  CheckCircle,
   FileText,
-  Clock,
   Lock,
+  // Trophy, <--- HAPUS INI
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
@@ -22,6 +21,7 @@ import StudentScheduleTab from "./student/StudentScheduleTab/StudentScheduleTab"
 import StudentMaterialsTab from "./student/StudentMaterialsTab";
 import StudentGradesTab from "./student/StudentGradesTab";
 import ExerciseTab from "./student/ExerciseTab";
+// import StudentLeaderboardTab from "./student/StudentLeaderboardTab"; <--- HAPUS INI
 
 const TAB_REGISTRY = {
   jadwal: {
@@ -40,60 +40,64 @@ const TAB_REGISTRY = {
     icon: TrendingUp,
     component: StudentGradesTab,
   },
+  // leaderboard: { ... } <--- HAPUS BAGIAN INI
 };
 
 const DEFAULT_TAB = "jadwal";
 
+// ... (Sisa kode ke bawah biarkan tetap sama seperti file asli)
+
 const RestrictedView = ({ status, navigate, activeInvoice }) => {
-  const getConfig = () => {
-    if (status === "unpaid")
-      return {
-        icon: FileText,
-        color: "warning",
-        title: "Belum Bayar",
-        msg: "Selesaikan pembayaran.",
-        btnText: "Bayar",
-        action: () =>
-          navigate("/invoice", { state: { invoice: activeInvoice } }),
+    // ... (kode RestrictedView tetap sama)
+    const getConfig = () => {
+        if (status === "unpaid")
+          return {
+            icon: FileText,
+            color: "warning",
+            title: "Belum Bayar",
+            msg: "Selesaikan pembayaran.",
+            btnText: "Bayar",
+            action: () =>
+              navigate("/invoice", { state: { invoice: activeInvoice } }),
+          };
+        if (status === "expired")
+          return {
+            icon: AlertTriangle,
+            color: "danger",
+            title: "Expired",
+            msg: "Paket habis.",
+            btnText: "Perpanjang",
+            action: () => navigate("/"),
+          };
+        return {
+          icon: Lock,
+          color: "secondary",
+          title: "Terkunci",
+          msg: "Pilih paket dulu.",
+          btnText: "Pilih Paket",
+          action: () => navigate("/"),
+        };
       };
-    if (status === "expired")
-      return {
-        icon: AlertTriangle,
-        color: "danger",
-        title: "Expired",
-        msg: "Paket habis.",
-        btnText: "Perpanjang",
-        action: () => navigate("/"),
-      };
-    return {
-      icon: Lock,
-      color: "secondary",
-      title: "Terkunci",
-      msg: "Pilih paket dulu.",
-      btnText: "Pilih Paket",
-      action: () => navigate("/"),
-    };
-  };
-  const config = getConfig();
-  const Icon = config.icon;
-  return (
-    <div className="text-center py-5">
-      <div
-        className={`bg-${config.color} bg-opacity-10 p-4 rounded-circle d-inline-block mb-3`}
-      >
-        <Icon size={48} className={`text-${config.color}`} />
-      </div>
-      <h4 className="fw-bold mb-2">{config.title}</h4>
-      <p className="text-muted mb-4">{config.msg}</p>
-      <Button
-        variant={config.color}
-        className="rounded-pill px-4"
-        onClick={config.action}
-      >
-        {config.btnText}
-      </Button>
-    </div>
-  );
+      const config = getConfig();
+      const Icon = config.icon;
+      return (
+        <div className="text-center py-5">
+          <div
+            className={`bg-${config.color} bg-opacity-10 p-4 rounded-circle d-inline-block mb-3`}
+          >
+            <Icon size={48} className={`text-${config.color}`} />
+          </div>
+          <h4 className="fw-bold mb-2">{config.title}</h4>
+          <p className="text-muted mb-4">{config.msg}</p>
+          <Button
+            variant={config.color}
+            className="rounded-pill px-4"
+            onClick={config.action}
+          >
+            {config.btnText}
+          </Button>
+        </div>
+      );
 };
 
 export default function StudentDashboard() {
