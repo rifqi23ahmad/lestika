@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Container, Row, Col, Button, Card, Spinner } from "react-bootstrap";
 import {
   Users,
@@ -27,12 +27,21 @@ const PublicHome = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const itemsPerPage = isMobile ? 1 : 3;
 
+  const testiList = Array.isArray(testimonials) ? testimonials : [];
+
+  useEffect(() => {
+    const maxStart = Math.max(0, testiList.length - itemsPerPage);
+    if (currentIndex > maxStart) {
+      setCurrentIndex(maxStart);
+    }
+  }, [testiList.length, itemsPerPage]); 
+
   const handleNext = () => {
-    if (currentIndex + itemsPerPage < testimonials.length)
-      setCurrentIndex(currentIndex + 1);
+    const maxStart = Math.max(0, testiList.length - itemsPerPage);
+    setCurrentIndex((prev) => Math.min(prev + itemsPerPage, maxStart));
   };
   const handlePrev = () => {
-    if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
+    setCurrentIndex((prev) => Math.max(prev - itemsPerPage, 0));
   };
   const renderStars = (count) =>
     [...Array(5)].map((_, i) => (
@@ -43,8 +52,49 @@ const PublicHome = ({
           i < count ? "text-warning fill-warning" : "text-muted opacity-25"
         }
         fill={i < count ? "currentColor" : "none"}
+        aria-hidden
       />
     ));
+
+  const touchStartX = useRef(null);
+  const touchThreshold = 45; // px
+
+  const onTouchStart = (e) => {
+    if (!e.touches || e.touches.length === 0) return;
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const onTouchEnd = (e) => {
+    if (touchStartX.current == null) return;
+    const endX =
+      (e.changedTouches &&
+        e.changedTouches[0] &&
+        e.changedTouches[0].clientX) ||
+      null;
+    if (endX == null) {
+      touchStartX.current = null;
+      return;
+    }
+    const delta = touchStartX.current - endX;
+    if (Math.abs(delta) > touchThreshold) {
+      if (delta > 0) handleNext();
+      else handlePrev();
+    }
+    touchStartX.current = null;
+  };
+
+  const onKeyDownNav = (e) => {
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      handlePrev();
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      handleNext();
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(testiList.length / itemsPerPage));
+  const activePage = Math.floor(currentIndex / itemsPerPage);
 
   return (
     <>
@@ -223,6 +273,7 @@ const PublicHome = ({
         </Container>
       </div>
 
+      {/* ======= Testimoni (HANYA BAGIAN INI YANG DI-REDESIGN) ======= */}
       <div className="py-5 bg-white">
         <Container>
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 mb-md-5">
@@ -234,7 +285,9 @@ const PublicHome = ({
                 Apa Kata Mereka?
               </h2>
             </div>
-            {!isMobile && testimonials.length > itemsPerPage && (
+
+            {/* Desktop controls */}
+            {!isMobile && testiList.length > itemsPerPage && (
               <div className="d-none d-md-flex gap-2">
                 <Button
                   variant="outline-secondary"
@@ -242,6 +295,7 @@ const PublicHome = ({
                   style={{ width: "40px", height: "40px" }}
                   onClick={handlePrev}
                   disabled={currentIndex === 0}
+                  aria-label="Sebelumnya"
                 >
                   <ChevronLeft size={20} />
                 </Button>
@@ -250,7 +304,8 @@ const PublicHome = ({
                   className="rounded-circle p-0 d-flex align-items-center justify-content-center border"
                   style={{ width: "40px", height: "40px" }}
                   onClick={handleNext}
-                  disabled={currentIndex + itemsPerPage >= testimonials.length}
+                  disabled={currentIndex + itemsPerPage >= testiList.length}
+                  aria-label="Berikutnya"
                 >
                   <ChevronRight size={20} />
                 </Button>
@@ -262,59 +317,135 @@ const PublicHome = ({
             <div className="text-center py-5">
               <Spinner animation="border" variant="primary" />
             </div>
-          ) : testimonials.length === 0 ? (
+          ) : testiList.length === 0 ? (
             <div className="text-center py-5 bg-light rounded-4">
               <p className="text-muted fst-italic mb-0">
                 Belum ada testimoni saat ini.
               </p>
             </div>
           ) : (
-            <Row className="g-4 justify-content-center">
-              {testimonials
-                .slice(currentIndex, currentIndex + itemsPerPage)
-                .map((t) => (
-                  <Col xs={12} md={4} key={t.id}>
-                    <Card className="border shadow-sm h-100 rounded-3 bg-white">
-                      <Card.Body className="p-4 d-flex flex-column">
-                        <div className="mb-3">
-                          <div
-                            className="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center"
-                            style={{ width: 36, height: 36 }}
-                          >
-                            <Quote size={18} className="fill-current" />
-                          </div>
-                        </div>
-                        <p
-                          className="text-secondary flex-grow-1 mb-4"
-                          style={{ fontSize: "0.95rem", lineHeight: "1.6" }}
-                        >
-                          {t.content}
-                        </p>
-                        <div className="d-flex align-items-center pt-3 border-top">
-                          <div
-                            className="bg-light text-primary border rounded-circle d-flex align-items-center justify-content-center fw-bold me-3"
-                            style={{ width: 42, height: 42, fontSize: "1rem" }}
-                          >
-                            {t.student?.full_name?.charAt(0).toUpperCase() ||
-                              "U"}
-                          </div>
-                          <div>
-                            <h6
-                              className="fw-bold mb-0 text-dark"
-                              style={{ fontSize: "0.9rem" }}
-                            >
-                              {t.student?.full_name || "Siswa"}
-                            </h6>
-                            <div className="d-flex mt-1">
-                              {renderStars(t.rating)}
+            <>
+              <div
+                role="region"
+                aria-label="Testimoni siswa"
+                tabIndex={0}
+                onKeyDown={onKeyDownNav}
+                onTouchStart={onTouchStart}
+                onTouchEnd={onTouchEnd}
+              >
+                <Row className="g-4 justify-content-center">
+                  {testiList
+                    .slice(currentIndex, currentIndex + itemsPerPage)
+                    .map((t) => (
+                      <Col xs={12} md={4} key={t.id}>
+                        <Card className="border shadow-sm h-100 rounded-3 bg-white">
+                          <Card.Body className="p-4 d-flex flex-column">
+                            <div className="mb-3">
+                              <div
+                                className="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center"
+                                style={{ width: 36, height: 36 }}
+                              >
+                                <Quote size={18} className="fill-current" />
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                ))}
-            </Row>
+                            <p
+                              className="text-secondary flex-grow-1 mb-4"
+                              style={{ fontSize: "0.95rem", lineHeight: "1.6" }}
+                            >
+                              {t.content}
+                            </p>
+                            <div className="d-flex align-items-center pt-3 border-top">
+                              <div
+                                className="bg-light text-primary border rounded-circle d-flex align-items-center justify-content-center fw-bold me-3"
+                                style={{
+                                  width: 42,
+                                  height: 42,
+                                  fontSize: "1rem",
+                                }}
+                                aria-hidden
+                              >
+                                {t.student?.full_name
+                                  ?.charAt(0)
+                                  .toUpperCase() || "U"}
+                              </div>
+                              <div>
+                                <h6
+                                  className="fw-bold mb-0 text-dark"
+                                  style={{ fontSize: "0.9rem" }}
+                                >
+                                  {t.student?.full_name || "Siswa"}
+                                </h6>
+                                <div className="d-flex mt-1" aria-hidden>
+                                  {renderStars(t.rating)}
+                                </div>
+                              </div>
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                    ))}
+                </Row>
+              </div>
+
+              {/* Mobile controls + dots */}
+              <div className="d-flex flex-column align-items-center mt-4">
+                <div className="d-flex gap-2 align-items-center mb-3 d-md-none">
+                  <Button
+                    variant="outline-secondary"
+                    className="rounded-circle p-0 d-flex align-items-center justify-content-center border"
+                    style={{ width: "40px", height: "40px" }}
+                    onClick={handlePrev}
+                    disabled={currentIndex === 0}
+                    aria-label="Sebelumnya"
+                  >
+                    <ChevronLeft size={20} />
+                  </Button>
+                  <div className="small text-muted">
+                    {testiList.length === 0
+                      ? "0 dari 0"
+                      : `${
+                          Math.floor(currentIndex / itemsPerPage) + 1
+                        } dari ${Math.ceil(testiList.length / itemsPerPage)}`}
+                  </div>
+
+                  <Button
+                    variant="outline-primary"
+                    className="rounded-circle p-0 d-flex align-items-center justify-content-center border"
+                    style={{ width: "40px", height: "40px" }}
+                    onClick={handleNext}
+                    disabled={currentIndex + itemsPerPage >= testiList.length}
+                    aria-label="Berikutnya"
+                  >
+                    <ChevronRight size={20} />
+                  </Button>
+                </div>
+
+                <div
+                  className="d-flex gap-2"
+                  role="tablist"
+                  aria-label="Halaman testimoni"
+                >
+                  {Array.from({ length: totalPages }).map((_, p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setCurrentIndex(p * itemsPerPage)}
+                      className={`btn p-0 border rounded-circle ${
+                        p === activePage ? "border-primary" : "border-muted"
+                      }`}
+                      style={{
+                        width: 10,
+                        height: 10,
+                        background:
+                          p === activePage ? undefined : "transparent",
+                      }}
+                      aria-label={`Halaman ${p + 1}`}
+                      aria-current={p === activePage ? "true" : "false"}
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
           )}
         </Container>
       </div>
