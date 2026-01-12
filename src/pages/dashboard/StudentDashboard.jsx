@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Spinner, Container, Button, Modal } from "react-bootstrap";
+import { Spinner, Container, Button, Modal, Form } from "react-bootstrap";
 import {
   Calendar,
   PenTool,
@@ -8,7 +8,7 @@ import {
   AlertTriangle,
   FileText,
   Lock,
-  // Trophy, <--- HAPUS INI
+  Star,
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
@@ -21,7 +21,87 @@ import StudentScheduleTab from "./student/StudentScheduleTab/StudentScheduleTab"
 import StudentMaterialsTab from "./student/StudentMaterialsTab";
 import StudentGradesTab from "./student/StudentGradesTab";
 import ExerciseTab from "./student/ExerciseTab";
-// import StudentLeaderboardTab from "./student/StudentLeaderboardTab"; <--- HAPUS INI
+
+const ReviewModal = ({ show, onHide, onSubmit, loading }) => {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [hoverRating, setHoverRating] = useState(0);
+
+  useEffect(() => {
+    if (show) {
+      setRating(0);
+      setComment("");
+      setHoverRating(0);
+    }
+  }, [show]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (rating === 0) return alert("Mohon berikan rating bintang.");
+    onSubmit({ rating, comment });
+  };
+
+  return (
+    <Modal show={show} onHide={onHide} centered>
+      <Modal.Header closeButton>
+        <Modal.Title className="fw-bold">Beri Ulasan Paket</Modal.Title>
+      </Modal.Header>
+      <Form onSubmit={handleSubmit}>
+        <Modal.Body className="text-center py-4">
+          <p className="text-muted mb-3">
+            Bagaimana pengalaman belajarmu dengan paket ini?
+          </p>
+          <div className="mb-4">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                size={32}
+                className="cursor-pointer mx-1"
+                fill={star <= (hoverRating || rating) ? "#FFC107" : "none"}
+                color={star <= (hoverRating || rating) ? "#FFC107" : "#cbd5e1"}
+                style={{ cursor: "pointer", transition: "all 0.2s" }}
+                onMouseEnter={() => setHoverRating(star)}
+                onMouseLeave={() => setHoverRating(0)}
+                onClick={() => setRating(star)}
+              />
+            ))}
+            <div className="small mt-2 text-primary fw-semibold">
+              {rating > 0
+                ? `${rating} dari 5 Bintang`
+                : "Klik bintang untuk menilai"}
+            </div>
+          </div>
+          <Form.Group className="text-start">
+            <Form.Label>Ceritakan pengalamanmu (opsional)</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              placeholder="Tutornya asik, materinya mudah dipahami..."
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={onHide} disabled={loading}>
+            Batal
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={loading || rating === 0}
+          >
+            {loading ? (
+              <Spinner size="sm" animation="border" />
+            ) : (
+              "Kirim Ulasan"
+            )}
+          </Button>
+        </Modal.Footer>
+      </Form>
+    </Modal>
+  );
+};
 
 const TAB_REGISTRY = {
   jadwal: {
@@ -40,65 +120,78 @@ const TAB_REGISTRY = {
     icon: TrendingUp,
     component: StudentGradesTab,
   },
-  // leaderboard: { ... } <--- HAPUS BAGIAN INI
 };
 
 const DEFAULT_TAB = "jadwal";
 
-// ... (Sisa kode ke bawah biarkan tetap sama seperti file asli)
-
 const RestrictedView = ({ status, navigate, activeInvoice }) => {
-    // ... (kode RestrictedView tetap sama)
-    const getConfig = () => {
-        if (status === "unpaid")
-          return {
-            icon: FileText,
-            color: "warning",
-            title: "Belum Bayar",
-            msg: "Selesaikan pembayaran.",
-            btnText: "Bayar",
-            action: () =>
-              navigate("/invoice", { state: { invoice: activeInvoice } }),
-          };
-        if (status === "expired")
-          return {
-            icon: AlertTriangle,
-            color: "danger",
-            title: "Expired",
-            msg: "Paket habis.",
-            btnText: "Perpanjang",
-            action: () => navigate("/"),
-          };
-        return {
-          icon: Lock,
-          color: "secondary",
-          title: "Terkunci",
-          msg: "Pilih paket dulu.",
-          btnText: "Pilih Paket",
-          action: () => navigate("/"),
-        };
+  const getConfig = () => {
+    if (status === "unpaid")
+      return {
+        icon: FileText,
+        color: "warning",
+        title: "Belum Bayar",
+        msg: "Selesaikan pembayaran.",
+        btnText: "Bayar",
+        action: () =>
+          navigate("/invoice", { state: { invoice: activeInvoice } }),
       };
-      const config = getConfig();
-      const Icon = config.icon;
-      return (
-        <div className="text-center py-5">
-          <div
-            className={`bg-${config.color} bg-opacity-10 p-4 rounded-circle d-inline-block mb-3`}
-          >
-            <Icon size={48} className={`text-${config.color}`} />
-          </div>
-          <h4 className="fw-bold mb-2">{config.title}</h4>
-          <p className="text-muted mb-4">{config.msg}</p>
-          <Button
-            variant={config.color}
-            className="rounded-pill px-4"
-            onClick={config.action}
-          >
-            {config.btnText}
-          </Button>
-        </div>
-      );
+
+    // ✅ ADDITIVE: cover SEMUA status waiting
+    if (status === "waiting_confirmation" || status === "waiting")
+      return {
+        icon: AlertTriangle,
+        color: "info",
+        title: "Menunggu Verifikasi",
+        msg: "Tunggu verifikasi admin.",
+        btnText: "Kembali",
+        action: () => navigate("/"),
+      };
+
+    if (status === "expired")
+      return {
+        icon: AlertTriangle,
+        color: "danger",
+        title: "Expired",
+        msg: "Paket habis.",
+        btnText: "Perpanjang",
+        action: () => navigate("/"),
+      };
+
+    // ❗ fallback TETAP (tidak diubah)
+    return {
+      icon: Lock,
+      color: "secondary",
+      title: "Terkunci",
+      msg: "Pilih paket dulu.",
+      btnText: "Pilih Paket",
+      action: () => navigate("/"),
+    };
+  };
+
+  const config = getConfig();
+  const Icon = config.icon;
+
+  return (
+    <div className="text-center py-5">
+      <div
+        className={`bg-${config.color} bg-opacity-10 p-4 rounded-circle d-inline-block mb-3`}
+      >
+        <Icon size={48} className={`text-${config.color}`} />
+      </div>
+      <h4 className="fw-bold mb-2">{config.title}</h4>
+      <p className="text-muted mb-4">{config.msg}</p>
+      <Button
+        variant={config.color}
+        className="rounded-pill px-4"
+        onClick={config.action}
+      >
+        {config.btnText}
+      </Button>
+    </div>
+  );
 };
+
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -115,6 +208,10 @@ export default function StudentDashboard() {
     msg: "",
     type: "success",
   });
+
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+
   const showModal = (title, msg, type = "success") =>
     setInfoModal({ show: true, title, msg, type });
 
@@ -156,6 +253,42 @@ export default function StudentDashboard() {
     };
     fetchStatus();
   }, [user]);
+
+  const handleReviewClick = () => {
+    setShowReviewModal(true);
+  };
+
+  const handleSubmitReview = async ({ rating, comment }) => {
+    setReviewLoading(true);
+    try {
+      const payload = {
+        student_id: user.id,
+        rating: rating,
+        content: comment, // Mapping dari state 'comment' ke kolom 'content'
+      };
+
+      const { error } = await supabase.from("testimonials").insert([payload]);
+
+      if (error) throw error;
+
+      setShowReviewModal(false);
+      showModal(
+        "Terima Kasih!",
+        "Ulasan Anda telah berhasil dikirim.",
+        "success"
+      );
+    } catch (error) {
+      console.error("Gagal kirim ulasan:", error);
+      setShowReviewModal(false);
+      showModal(
+        "Gagal Mengirim",
+        "Terjadi kesalahan saat menyimpan ulasan. " + (error.message || ""),
+        "danger"
+      );
+    } finally {
+      setReviewLoading(false);
+    }
+  };
 
   const getStatusBadge = () => {
     switch (status) {
@@ -203,6 +336,7 @@ export default function StudentDashboard() {
           user={user}
           activeInvoice={activeInvoice}
           status={status}
+          onReviewClick={handleReviewClick} // Prop ini menyambungkan tombol ke fungsi handleReviewClick
         />
       }
     >
@@ -221,6 +355,7 @@ export default function StudentDashboard() {
         />
       )}
 
+      {/* Modal Info Umum */}
       <Modal
         show={infoModal.show}
         onHide={() => setInfoModal({ ...infoModal, show: false })}
@@ -234,6 +369,14 @@ export default function StudentDashboard() {
           </Button>
         </Modal.Body>
       </Modal>
+
+      {/* Modal Review (Popup Bintang) */}
+      <ReviewModal
+        show={showReviewModal}
+        onHide={() => setShowReviewModal(false)}
+        onSubmit={handleSubmitReview}
+        loading={reviewLoading}
+      />
     </DashboardLayout>
   );
 }
