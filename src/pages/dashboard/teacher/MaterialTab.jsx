@@ -9,7 +9,7 @@ import {
   Modal,
   Form,
   ProgressBar,
-  Nav // Tambahkan Nav untuk Tab pill
+  Nav
 } from "react-bootstrap";
 import {
   Trash2,
@@ -20,11 +20,13 @@ import {
   Edit,
   Upload,
   Save,
-  Youtube, // Tambah Icon Youtube
-  Link as LinkIcon
+  Youtube,
+  Link as LinkIcon,
+  Sparkles 
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../context/AuthContext";
+import AiMaterialModal from "../../../components/teacher/modals/AiMaterialModal";
 
 export default function MaterialTab() {
   const { user } = useAuth();
@@ -36,7 +38,8 @@ export default function MaterialTab() {
   const [isEditing, setIsEditing] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   
-  // State untuk tipe upload: 'file' | 'youtube'
+  const [showAiModal, setShowAiModal] = useState(false);
+  
   const [uploadType, setUploadType] = useState('file');
 
   const [formData, setFormData] = useState({
@@ -47,7 +50,7 @@ export default function MaterialTab() {
     kelas: "",
     subject: "",
     file: null,
-    youtubeUrl: "" // Field baru untuk URL
+    youtubeUrl: ""
   });
 
   const [showViewModal, setShowViewModal] = useState(false);
@@ -94,14 +97,13 @@ export default function MaterialTab() {
     return [];
   };
 
-  // Helper cek apakah URL adalah YouTube
   const isYouTubeUrl = (url) => {
     return url && (url.includes("youtube.com") || url.includes("youtu.be"));
   };
 
   const handleShowUpload = () => {
     setIsEditing(false);
-    setUploadType('file'); // Default file
+    setUploadType('file');
     setFormData({
       id: null,
       title: "",
@@ -119,7 +121,6 @@ export default function MaterialTab() {
     setIsEditing(true);
     const detectedJenjang = item.jenjang || getJenjangFromKelas(item.kelas);
     
-    // Deteksi tipe konten
     const isYoutube = isYouTubeUrl(item.file_url);
     setUploadType(isYoutube ? 'youtube' : 'file');
 
@@ -150,7 +151,6 @@ export default function MaterialTab() {
         throw new Error("Mohon lengkapi Judul, Jenjang, Kelas, dan Mapel.");
       }
 
-      // Validasi File / Link
       if (!isEditing) {
           if (uploadType === 'file' && !formData.file) throw new Error("File materi wajib diupload.");
           if (uploadType === 'youtube' && !formData.youtubeUrl) throw new Error("Link YouTube wajib diisi.");
@@ -158,11 +158,9 @@ export default function MaterialTab() {
 
       let finalFileUrl = null;
 
-      // 1. Jika tipe YouTube, pakai URL text langsung
       if (uploadType === 'youtube') {
          finalFileUrl = formData.youtubeUrl;
       } 
-      // 2. Jika tipe File dan ada file baru yg diupload
       else if (uploadType === 'file' && formData.file) {
         const fileExt = formData.file.name.split(".").pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -190,7 +188,6 @@ export default function MaterialTab() {
         updated_at: new Date(),
       };
 
-      // Hanya update file_url jika ada perubahan (file baru atau link baru)
       if (finalFileUrl) {
         payload.file_url = finalFileUrl;
       }
@@ -214,24 +211,18 @@ export default function MaterialTab() {
     }
   };
 
-  // Helper convert Youtube Link to Embed
   const getEmbedUrl = (url) => {
     if (!url) return "";
     let videoId = "";
-    
-    // Handle youtu.be/ID
     if (url.includes("youtu.be")) {
         videoId = url.split("/").pop().split("?")[0];
     } 
-    // Handle youtube.com/watch?v=ID
     else if (url.includes("v=")) {
         videoId = url.split("v=")[1].split("&")[0];
     }
-    // Handle embed link already
     else if (url.includes("embed")) {
         return url;
     }
-
     return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
   };
 
@@ -249,7 +240,6 @@ export default function MaterialTab() {
     if (!selectedMaterial) return;
     setDeleteLoading(true);
     try {
-      // Hapus file fisik HANYA jika bukan link youtube
       if (selectedMaterial.file_url && !isYouTubeUrl(selectedMaterial.file_url)) {
         try {
           const urlParts = selectedMaterial.file_url.split("/materials/");
@@ -291,13 +281,24 @@ export default function MaterialTab() {
             Kelola materi untuk SD, SMP, dan SMA.
           </p>
         </div>
-        <Button
-          onClick={handleShowUpload}
-          variant="primary"
-          className="shadow-sm d-flex align-items-center gap-2"
-        >
-          <Plus size={18} /> Tambah Materi
-        </Button>
+        
+        {/* Update Tombol Group */}
+        <div className="d-flex gap-2">
+            <Button
+              onClick={() => setShowAiModal(true)}
+              variant="light"
+              className="text-primary bg-primary-subtle border-0 shadow-sm d-flex align-items-center gap-2 fw-medium"
+            >
+              <Sparkles size={18} /> Generate AI PDF
+            </Button>
+            <Button
+              onClick={handleShowUpload}
+              variant="primary"
+              className="shadow-sm d-flex align-items-center gap-2"
+            >
+              <Plus size={18} /> Tambah Materi
+            </Button>
+        </div>
       </div>
 
       {error && (
@@ -413,6 +414,7 @@ export default function MaterialTab() {
         </Card.Body>
       </Card>
 
+      {/* --- MODAL MANUAL UPLOAD/EDIT --- */}
       <Modal
         show={showFormModal}
         onHide={handleCloseForm}
@@ -428,7 +430,6 @@ export default function MaterialTab() {
         <Form onSubmit={handleSubmit}>
           <Modal.Body className="p-4">
             
-            {/* --- PILIHAN TIPE UPLOAD --- */}
             <div className="mb-4">
                 <Nav variant="pills" className="bg-light p-1 rounded-3" activeKey={uploadType}>
                     <Nav.Item className="w-50">
@@ -544,7 +545,6 @@ export default function MaterialTab() {
                 </Form.Group>
               </div>
 
-              {/* --- KONDISIONAL INPUT BERDASARKAN TIPE --- */}
               <div className="col-12">
                 <Form.Group>
                   <Form.Label className="fw-medium">
@@ -552,7 +552,6 @@ export default function MaterialTab() {
                   </Form.Label>
                   
                   {uploadType === 'file' ? (
-                      // INPUT FILE
                       <>
                         <div
                             className={`border rounded-3 p-3 text-center ${
@@ -608,7 +607,6 @@ export default function MaterialTab() {
                         )}
                       </>
                   ) : (
-                      // INPUT YOUTUBE LINK
                       <div className="input-group">
                          <span className="input-group-text bg-light"><LinkIcon size={18}/></span>
                          <Form.Control 
@@ -668,7 +666,6 @@ export default function MaterialTab() {
         </Modal.Header>
         <Modal.Body className="p-0 bg-dark" style={{ height: "80vh" }}>
           {previewData.type === 'youtube' ? (
-              // RENDER YOUTUBE EMBED
               <iframe
                 src={previewData.url}
                 title="YouTube Video Player"
@@ -679,7 +676,6 @@ export default function MaterialTab() {
                 className="border-0"
               />
           ) : (
-              // RENDER FILE (PDF/IMAGE)
               previewData.url ? (
                 <iframe
                 src={previewData.url}
@@ -726,6 +722,13 @@ export default function MaterialTab() {
           </div>
         </Modal.Body>
       </Modal>
+
+      {/* --- INTEGRASI AI MATERIAL MODAL --- */}
+      <AiMaterialModal 
+        show={showAiModal} 
+        onHide={() => setShowAiModal(false)}
+        onSuccess={fetchMaterials}
+      />
     </div>
   );
 }
